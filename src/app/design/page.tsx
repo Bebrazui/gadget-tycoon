@@ -16,7 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   DollarSign, HardDrive, Smartphone, Palette, Ruler, Zap, Camera, Loader2,
-  AspectRatio, RefreshCw, Droplets, GalleryVertical, SmartphoneNfc, Cog, UserCircle, Info
+  MonitorSmartphone, RefreshCw, Droplets, GalleryVertical, SmartphoneNfc, Cog, UserCircle, Info
 } from 'lucide-react';
 import Image from 'next/image';
 import {
@@ -144,7 +144,7 @@ export default function DesignPhonePage() {
     { name: "batteryCapacity" as keyof PhoneDesignFormData, label: t('batteryCapacityLabel'), icon: Zap, componentType: "Slider", min: 2000, max: 10000, step: 100, unit: "mAh" },
     { name: "material" as keyof PhoneDesignFormData, label: t('materialLabel'), icon: Smartphone, componentType: "Select", options: MATERIAL_OPTIONS.options },
     { name: "color" as keyof PhoneDesignFormData, label: t('colorLabel'), icon: Palette, componentType: "Select", options: COLOR_OPTIONS.map(c => ({...c, cost: 0})) }, // Color cost is usually included or minor
-    { name: "screenSize" as keyof PhoneDesignFormData, label: t('screenSizeLabel'), icon: AspectRatio, componentType: "Slider", min: 5.0, max: 7.5, step: 0.1, unit: t('inchesUnit') },
+    { name: "screenSize" as keyof PhoneDesignFormData, label: t('screenSizeLabel'), icon: MonitorSmartphone, componentType: "Slider", min: 5.0, max: 7.5, step: 0.1, unit: t('inchesUnit') },
     { name: "refreshRate" as keyof PhoneDesignFormData, label: t('refreshRateLabel'), icon: RefreshCw, componentType: "Select", options: REFRESH_RATE_OPTIONS.options },
     { name: "waterResistance" as keyof PhoneDesignFormData, label: t('waterResistanceLabel'), icon: Droplets, componentType: "Select", options: WATER_RESISTANCE_OPTIONS.options },
     { name: "simSlots" as keyof PhoneDesignFormData, label: t('simSlotsLabel'), icon: GalleryVertical, componentType: "Select", options: SIM_SLOT_OPTIONS.options },
