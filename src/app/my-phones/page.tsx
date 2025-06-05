@@ -95,7 +95,7 @@ export default function MyPhonesPage() {
     if (statsString) {
       currentStats = JSON.parse(statsString);
     }
-    const salePrice = parseFloat((phoneToSell.unitManufacturingCost * SALE_MARKUP_FACTOR).toFixed(2));
+    const salePrice = parseFloat(((phoneToSell.unitManufacturingCost || 0) * SALE_MARKUP_FACTOR).toFixed(2));
     currentStats.totalFunds += salePrice;
     currentStats.phonesSold += 1;
     localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
@@ -180,8 +180,8 @@ export default function MyPhonesPage() {
                   </AlertDialog>
                 </CardTitle>
                 <CardDescription>
-                  <span className="block">{t('unitManufacturingCostLabel')}: ${phone.unitManufacturingCost.toFixed(2)}</span>
-                  <span className="block">{t('currentStockLabel')}: {phone.currentStock} / {phone.productionQuantity} ({t('productionQuantityInfoLabel')})</span>
+                  <span className="block">{t('unitManufacturingCostLabel')}: ${(phone.unitManufacturingCost || 0).toFixed(2)}</span>
+                  <span className="block">{t('currentStockLabel')}: {phone.currentStock || 0} / {phone.productionQuantity || 0} ({t('productionQuantityInfoLabel')})</span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-grow space-y-4">
@@ -192,7 +192,7 @@ export default function MyPhonesPage() {
                       alt={phone.name || t('phoneBlueprintAlt')}
                       fill 
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" 
-                      style={{objectFit: "cover"}} 
+                      style={{objectFit: "cover"}}
                       data-ai-hint="custom phone"
                     />
                   )}
@@ -227,7 +227,7 @@ export default function MyPhonesPage() {
                     variant="default" 
                     className="w-full" 
                     onClick={() => handleSellUnit(phone)}
-                    disabled={phone.currentStock <= 0}
+                    disabled={(phone.currentStock || 0) <= 0}
                   >
                     <HandCoins className="inline h-4 w-4 mr-2"/>{t('sellOneUnitButton')}
                  </Button>
