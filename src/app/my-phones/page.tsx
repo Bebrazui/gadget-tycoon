@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -49,35 +49,66 @@ export default function MyPhonesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [salesFormData, setSalesFormData] = useState<SalesFormData>({});
 
-  useEffect(() => {
-    loadPhones();
-    setIsLoading(false);
-    window.addEventListener('myPhonesChanged', loadPhones);
-    return () => {
-      window.removeEventListener('myPhonesChanged', loadPhones);
-    };
-  }, []);
-
-  const loadPhones = () => {
+  const loadPhones = useCallback(() => {
     const phonesFromStorage = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
     let phones: PhoneDesign[] = [];
     if (phonesFromStorage) {
-      phones = JSON.parse(phonesFromStorage);
-      setSavedPhones(phones);
-      // Initialize sales form data
-      const initialSalesData: SalesFormData = {};
-      phones.forEach(phone => {
-        initialSalesData[phone.id] = {
-          price: (phone.salePrice || (phone.unitManufacturingCost * SALE_MARKUP_FACTOR)).toFixed(2),
-          quantityToList: '0',
-        };
-      });
-      setSalesFormData(initialSalesData);
+      try {
+        const parsedPhones = JSON.parse(phonesFromStorage);
+        // Фильтруем некорректные или отсутствующие записи
+        const validPhones = Array.isArray(parsedPhones) ? parsedPhones.filter(p => p && typeof p === 'object' && p.id) : [];
+        setSavedPhones(validPhones);
+
+        const initialSalesData: SalesFormData = {};
+        validPhones.forEach(phone => {
+          const unitCost = phone.unitManufacturingCost || 0;
+          const defaultCalculatedPrice = unitCost * SALE_MARKUP_FACTOR;
+          // Используем существующую цену продажи, если она есть и является числом, иначе рассчитываем по умолчанию
+          const salePrice = typeof phone.salePrice === 'number' ? phone.salePrice : defaultCalculatedPrice;
+
+          initialSalesData[phone.id] = {
+            price: salePrice.toFixed(2),
+            quantityToList: (phone.quantityListedForSale || 0).toString(), // Инициализируем из данных телефона
+          };
+        });
+        setSalesFormData(initialSalesData);
+      } catch (error) {
+        console.error("Ошибка загрузки телефонов из localStorage:", error);
+        localStorage.removeItem(LOCAL_STORAGE_MY_PHONES_KEY);
+        setSavedPhones([]);
+        setSalesFormData({});
+        toast({
+          variant: "destructive",
+          title: t('localStorageErrorTitle'),
+          description: t('localStorageErrorMyPhonesDesc'),
+        });
+      }
     } else {
       setSavedPhones([]);
       setSalesFormData({});
     }
-  };
+  }, [t, toast]); // Зависимости для useCallback
+
+  useEffect(() => {
+    loadPhones();
+    setIsLoading(false);
+
+    // Слушатель для изменений localStorage из других вкладок/окон
+    const handleStorageChange = (event: StorageEvent) => {
+        if (event.key === LOCAL_STORAGE_MY_PHONES_KEY) {
+            loadPhones();
+        }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Слушатель для кастомного события изменения телефонов внутри приложения
+    window.addEventListener('myPhonesChanged', loadPhones);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('myPhonesChanged', loadPhones);
+    };
+  }, [loadPhones]);
 
   const getLabel = (optionsArray: any[] | undefined, value: string): string => {
     const option = optionsArray?.find(opt => opt.value === value);
@@ -88,7 +119,6 @@ export default function MyPhonesPage() {
     const updatedPhones = savedPhones.filter(phone => phone.id !== phoneId);
     setSavedPhones(updatedPhones);
     localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
-    // Also remove from sales form data
     setSalesFormData(prev => {
       const newData = {...prev};
       delete newData[phoneId];
@@ -98,7 +128,7 @@ export default function MyPhonesPage() {
       title: t('phoneDeletedTitle'),
       description: t('phoneDeletedDesc'),
     });
-    window.dispatchEvent(new CustomEvent('myPhonesChanged')); // To update any listeners
+    window.dispatchEvent(new CustomEvent('myPhonesChanged'));
   };
 
   const handleSalesInputChange = (phoneId: string, field: 'price' | 'quantityToList', value: string) => {
@@ -119,77 +149,94 @@ export default function MyPhonesPage() {
     const quantityToList = parseInt(formData.quantityToList, 10);
     const newSalePrice = parseFloat(formData.price);
 
-    if (isNaN(quantityToList) || quantityToList <= 0) {
-      toast({ variant: "destructive", title: t('genericErrorTitle'), description: t('invalidQuantityNegative') });
+    if (isNaN(quantityToList) || quantityToList < 0) { // Разрешим 0, чтобы снять с продажи
+      toast({ variant: "destructive", title: t('genericErrorTitle'), description: t('invalidQuantityNegativeOrZero') }); // Обновим ключ перевода
       return;
     }
     if (isNaN(newSalePrice) || newSalePrice <= 0) {
       toast({ variant: "destructive", title: t('genericErrorTitle'), description: t('invalidPriceNegative') });
       return;
     }
-    if (quantityToList > (phone.currentStock || 0)) {
+    
+    const stockChange = quantityToList - (phone.quantityListedForSale || 0);
+
+    if (stockChange > (phone.currentStock || 0)) {
       toast({
         variant: "destructive",
         title: t('genericErrorTitle'),
-        description: t('notEnoughStockToList', { quantity: quantityToList, availableStock: phone.currentStock || 0 }),
+        description: t('notEnoughStockToList', { quantity: stockChange, availableStock: phone.currentStock || 0 }),
       });
       return;
     }
+    
+    let operationMessage = '';
 
     const updatedPhones = savedPhones.map(p => {
       if (p.id === phoneId) {
+        const alreadyListed = p.quantityListedForSale || 0;
+        const newListedQuantity = quantityToList; // Это общее новое количество, которое должно быть на рынке
+        
+        // Рассчитываем изменение на складе:
+        // Если выставляем больше, чем было: stockDelta = newListed - alreadyListed (положительное, берем со склада)
+        // Если выставляем меньше, чем было: stockDelta = newListed - alreadyListed (отрицательное, возвращаем на склад)
+        const stockDelta = newListedQuantity - alreadyListed;
+
+        const newStock = (p.currentStock || 0) - stockDelta;
+
+        if (newStock < 0) {
+             toast({
+                variant: "destructive",
+                title: t('genericErrorTitle'),
+                description: t('notEnoughStockToListGeneral')
+             });
+             return p; // не меняем телефон, если недостаточно на складе
+        }
+        
+        if (newListedQuantity > alreadyListed) {
+            operationMessage = t('phoneListedSuccessfully', { quantity: newListedQuantity - alreadyListed, phoneName: p.name, price: newSalePrice.toFixed(2) });
+        } else if (newListedQuantity < alreadyListed) {
+            operationMessage = t('phoneUnlistedSuccessfully', { quantity: alreadyListed - newListedQuantity, phoneName: p.name });
+        } else {
+             // Если количество не изменилось, но цена могла
+             if (p.salePrice !== newSalePrice) {
+                operationMessage = t('priceUpdatedSuccessfully', { phoneName: p.name, price: newSalePrice.toFixed(2) });
+             } else {
+                toast({ title: t('noChangesMade')}); return p;
+             }
+        }
+
+
         return {
           ...p,
-          currentStock: (p.currentStock || 0) - quantityToList,
-          quantityListedForSale: (p.quantityListedForSale || 0) + quantityToList,
+          currentStock: newStock,
+          quantityListedForSale: newListedQuantity,
           salePrice: newSalePrice,
         };
       }
       return p;
     });
+    
+    // Проверяем, был ли телефон обновлен (если, например, запасов не хватило)
+    if (JSON.stringify(updatedPhones) !== JSON.stringify(savedPhones)) {
+        setSavedPhones(updatedPhones);
+        localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
+        
+        setSalesFormData(prev => ({
+            ...prev,
+            [phoneId]: {
+                ...prev[phoneId],
+                price: newSalePrice.toFixed(2),
+                // quantityToList здесь не сбрасываем в '0', так как он теперь отражает общее количество на рынке
+            }
+        }));
 
-    setSavedPhones(updatedPhones);
-    localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
-    // Reset quantity to list for this phone
-    setSalesFormData(prev => ({
-        ...prev,
-        [phoneId]: {
-            ...prev[phoneId],
-            quantityToList: '0', // Reset after listing
-            price: newSalePrice.toFixed(2) // Ensure price is updated in form state
+        if(operationMessage) {
+            toast({ title: operationMessage });
         }
-    }));
-
-    toast({
-      title: t('phoneListedSuccessfully', { quantity: quantityToList, phoneName: phone.name, price: newSalePrice.toFixed(2) }),
-    });
-    window.dispatchEvent(new CustomEvent('myPhonesChanged'));
+        window.dispatchEvent(new CustomEvent('myPhonesChanged'));
+    }
   };
   
-  const handleUpdatePrice = (phoneId: string) => {
-      const phone = savedPhones.find(p => p.id === phoneId);
-      if (!phone) return;
-
-      const formData = salesFormData[phoneId];
-      const newSalePrice = parseFloat(formData.price);
-
-      if (isNaN(newSalePrice) || newSalePrice <= 0) {
-          toast({ variant: "destructive", title: t('genericErrorTitle'), description: t('invalidPriceNegative') });
-          return;
-      }
-
-      const updatedPhones = savedPhones.map(p => 
-          p.id === phoneId ? { ...p, salePrice: newSalePrice } : p
-      );
-      setSavedPhones(updatedPhones);
-      localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
-      toast({
-          title: t('priceUpdatedSuccessfully', { phoneName: phone.name, price: newSalePrice.toFixed(2) }),
-      });
-      window.dispatchEvent(new CustomEvent('myPhonesChanged'));
-  };
-
-
   if (isLoading) {
     return <div className="flex justify-center items-center h-64"><Sparkles className="w-8 h-8 animate-spin text-primary" /> <span className="ml-2">{t('loadingPhones')}</span></div>;
   }
@@ -284,7 +331,7 @@ export default function MyPhonesPage() {
                 <Separator className="my-4"/>
                 <div className="space-y-3">
                     <h4 className="font-semibold flex items-center"><TrendingUp className="inline h-4 w-4 mr-1 text-primary"/>{t('salesManagementSectionTitle')}</h4>
-                    <p className="text-sm">
+                     <p className="text-sm">
                         {t('currentStockLabel')}: <span className="font-medium">{phone.currentStock || 0}</span>
                     </p>
                      <p className="text-sm">
@@ -292,19 +339,15 @@ export default function MyPhonesPage() {
                     </p>
                     <div className="space-y-1">
                         <Label htmlFor={`price-${phone.id}`} className="text-xs">{t('setSalePriceLabel')}</Label>
-                        <div className="flex items-center gap-2">
-                             <Input 
-                                type="number" 
-                                id={`price-${phone.id}`}
-                                value={salesFormData[phone.id]?.price || ''}
-                                onChange={(e) => handleSalesInputChange(phone.id, 'price', e.target.value)}
-                                className="h-8 text-sm"
-                                step="0.01"
-                                min="0"
-                            />
-                            <Button size="sm" variant="outline" onClick={() => handleUpdatePrice(phone.id)}><Edit className="w-3 h-3 mr-1"/>{t('updatePriceButton')}</Button>
-                        </div>
-
+                         <Input 
+                            type="number" 
+                            id={`price-${phone.id}`}
+                            value={salesFormData[phone.id]?.price || ''}
+                            onChange={(e) => handleSalesInputChange(phone.id, 'price', e.target.value)}
+                            className="h-8 text-sm"
+                            step="0.01"
+                            min="0.01" // Цена должна быть больше 0
+                        />
                     </div>
                      <div className="space-y-1">
                         <Label htmlFor={`qty-${phone.id}`} className="text-xs">{t('quantityToNewLabel')}</Label>
@@ -314,8 +357,8 @@ export default function MyPhonesPage() {
                             value={salesFormData[phone.id]?.quantityToList || '0'}
                             onChange={(e) => handleSalesInputChange(phone.id, 'quantityToList', e.target.value)}
                             className="h-8 text-sm"
-                            min="0"
-                            max={phone.currentStock || 0}
+                            min="0" // Можно выставить 0, чтобы снять с продажи
+                            max={(phone.currentStock || 0) + (phone.quantityListedForSale || 0)} // Максимум - это то, что на складе + то, что уже выставлено
                         />
                     </div>
                     <Button 
@@ -323,9 +366,13 @@ export default function MyPhonesPage() {
                         size="sm"
                         className="w-full" 
                         onClick={() => handleListForSale(phone.id)}
-                        disabled={(phone.currentStock || 0) <= 0 || parseInt(salesFormData[phone.id]?.quantityToList || '0', 10) <= 0}
+                        // Кнопка активна, если есть что менять (цена или количество)
+                        disabled={
+                            (parseFloat(salesFormData[phone.id]?.price) === (phone.salePrice || 0) &&
+                             parseInt(salesFormData[phone.id]?.quantityToList, 10) === (phone.quantityListedForSale || 0))
+                        }
                     >
-                        <HandCoins className="inline h-4 w-4 mr-2"/>{t('listForSaleButton')}
+                        <HandCoins className="inline h-4 w-4 mr-2"/>{t('updateMarketListingButton')}
                     </Button>
                 </div>
               </CardContent>
@@ -341,3 +388,6 @@ export default function MyPhonesPage() {
     </div>
   );
 }
+
+
+    
