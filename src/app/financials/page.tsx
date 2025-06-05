@@ -19,7 +19,7 @@ export default function FinancialsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [financialSummary, setFinancialSummary] = useState({
     revenue: 0,
-    costs: 0, // Renamed from expenses to represent total costs/expenses
+    costs: 0, 
     profit: 0,
   });
 
@@ -35,7 +35,6 @@ export default function FinancialsPage() {
           localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(defaultInitialTransactions));
         }
       } else {
-        // If no transactions, still set an empty array and save it to avoid repeated checks
         localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(defaultInitialTransactions));
       }
       setTransactions(currentTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())); 
@@ -59,9 +58,9 @@ export default function FinancialsPage() {
 
     transactions.forEach(txn => {
       if (txn.type === 'income') {
-        revenue += txn.amount; // Amount is positive for income
+        revenue += txn.amount; 
       } else if (txn.type === 'expense') {
-        costs += Math.abs(txn.amount); // Amount is negative for expense, so use abs for summing costs
+        costs += Math.abs(txn.amount); 
       }
     });
     
@@ -70,21 +69,22 @@ export default function FinancialsPage() {
     setFinancialSummary({ revenue, costs, profit });
   }, [transactions]);
 
+  // Enhanced getTransactionDescription to handle more complex placeholder structures
   const getTransactionDescription = (txn: Transaction): string => {
-    // Check if the description is a key or a direct string
-    // Simple check: if it contains spaces or special characters, assume it's already translated or a dynamic value
-    // This is a heuristic and might need refinement if keys can contain spaces
-    if (txn.description.includes("{{") && txn.description.includes("}}")) { // Placeholder for dynamic values
-        const key = txn.description.substring(0, txn.description.indexOf("{{")).trim();
-        const paramsString = txn.description.substring(txn.description.indexOf("{{")+2, txn.description.lastIndexOf("}}"));
-        try {
-            const params = JSON.parse(paramsString);
-            return t(key, params);
-        } catch (e) {
-             // If params are not valid JSON, or other issues, try translating the key directly or return as is
+    if (txn.description.startsWith("transactionProductionOf")) {
+        // Example: "transactionProductionOf{{quantity:100,phoneName:My Awesome Phone}}"
+        const paramsMatch = txn.description.match(/{{quantity:(\d+),phoneName:(.*)}}/);
+        if (paramsMatch) {
+            return t('transactionProductionOf', { quantity: paramsMatch[1], phoneName: paramsMatch[2] });
+        }
+    } else if (txn.description.startsWith("transactionMarketSaleOf")) {
+        // Example: "transactionMarketSaleOf{{quantity:2,phoneName:My Awesome Phone,price:199.99}}"
+        const paramsMatch = txn.description.match(/{{quantity:(\d+),phoneName:(.*),price:([\d.]+)}}/);
+        if (paramsMatch) {
+            return t('transactionMarketSaleOf', { quantity: paramsMatch[1], phoneName: paramsMatch[2], price: paramsMatch[3] });
         }
     }
-    // For direct translation keys or already-formatted strings
+    // Fallback for simple keys or already formatted strings
     return t(txn.description) || txn.description;
   }
 
@@ -103,7 +103,7 @@ export default function FinancialsPage() {
             <TrendingUp className="h-5 w-5 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialSummary.revenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">${financialSummary.revenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
             <p className="text-xs text-muted-foreground">{t('totalRevenueDesc')}</p>
           </CardContent>
         </Card>
@@ -113,7 +113,7 @@ export default function FinancialsPage() {
             <TrendingDown className="h-5 w-5 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialSummary.costs.toLocaleString()}</div>
+            <div className="text-2xl font-bold">${financialSummary.costs.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
             <p className="text-xs text-muted-foreground">{t('totalCostsDesc')}</p>
           </CardContent>
         </Card>
@@ -123,7 +123,7 @@ export default function FinancialsPage() {
             <Banknote className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialSummary.profit.toLocaleString()}</div>
+            <div className="text-2xl font-bold">${financialSummary.profit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
             <p className="text-xs text-muted-foreground">
               {t('profitMargin', { margin: (financialSummary.revenue > 0 ? (financialSummary.profit / financialSummary.revenue * 100) : 0).toFixed(1) })}
             </p>
@@ -154,13 +154,10 @@ export default function FinancialsPage() {
                   <TableRow key={txn.id}>
                     <TableCell>{new Date(txn.date).toLocaleDateString(t('languageLabel') === 'Русский' ? 'ru-RU' : 'en-US')}</TableCell>
                     <TableCell className="font-medium">
-                       {/* Use the smart translation for description */}
-                       {txn.description.startsWith("transactionSaleOf") ? t('transactionSaleOf', {phoneName: txn.description.substring(txn.description.indexOf("{{")+14, txn.description.indexOf("}}"))}) : 
-                        txn.description.startsWith("transactionProductionOf") ? t('transactionProductionOf', {quantity: txn.description.substring(txn.description.indexOf("{{quantity:")+11, txn.description.indexOf(",")), phoneName: txn.description.substring(txn.description.indexOf("phoneName:")+10, txn.description.lastIndexOf("}}")) }) :
-                        t(txn.description) || txn.description}
+                       {getTransactionDescription(txn)}
                     </TableCell>
                     <TableCell className={`text-right font-semibold ${txn.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
-                      {txn.type === 'income' ? '+' : '-'}${Math.abs(txn.amount).toLocaleString()}
+                      {txn.type === 'income' ? '+' : '-'}${Math.abs(txn.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </TableCell>
                   </TableRow>
                 ))}

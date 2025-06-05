@@ -25,7 +25,7 @@ import {
   OPERATING_SYSTEM_OPTIONS, FRONT_CAMERA_COST_PER_MP, SCREEN_SIZE_COST_FACTOR,
   type PhoneDesign, type PhoneComponentOption, type GameStats, type Transaction,
   LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY,
-  INITIAL_FUNDS, BASE_DESIGN_ASSEMBLY_COST
+  INITIAL_FUNDS, BASE_DESIGN_ASSEMBLY_COST, SALE_MARKUP_FACTOR
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/hooks/useTranslation';
@@ -109,17 +109,18 @@ export default function DesignPhonePage() {
     unitCost += watchedValues.storage * STORAGE_COST_PER_GB;
     unitCost += watchedValues.cameraResolution * CAMERA_COST_PER_MP;
     unitCost += (watchedValues.batteryCapacity / 100) * BATTERY_COST_PER_100MAH;
-    unitCost += (watchedValues.screenSize - 5.0) * SCREEN_SIZE_COST_FACTOR; // Assuming 5.0 is base size with no extra cost
+    unitCost += (watchedValues.screenSize - 5.0) * SCREEN_SIZE_COST_FACTOR; 
     unitCost += getOptionCost(REFRESH_RATE_OPTIONS.options, watchedValues.refreshRate);
     unitCost += getOptionCost(WATER_RESISTANCE_OPTIONS.options, watchedValues.waterResistance);
     unitCost += getOptionCost(SIM_SLOT_OPTIONS.options, watchedValues.simSlots);
     if (watchedValues.nfcSupport) unitCost += NFC_COST;
     unitCost += getOptionCost(OPERATING_SYSTEM_OPTIONS.options, watchedValues.operatingSystem);
     unitCost += watchedValues.frontCameraResolution * FRONT_CAMERA_COST_PER_MP;
-    unitCost += BASE_DESIGN_ASSEMBLY_COST; // Base design & assembly cost per unit
+    unitCost += BASE_DESIGN_ASSEMBLY_COST; 
     
     setUnitManufacturingCost(parseFloat(unitCost.toFixed(2)));
-    setTotalProductionCost(parseFloat((unitCost * watchedValues.productionQuantity).toFixed(2)));
+    const prodQty = typeof watchedValues.productionQuantity === 'number' ? watchedValues.productionQuantity : 0;
+    setTotalProductionCost(parseFloat((unitCost * prodQty).toFixed(2)));
 
   }, [watchedValues]);
 
@@ -134,7 +135,6 @@ export default function DesignPhonePage() {
     const currentUnitCost = parseFloat(unitManufacturingCost.toFixed(2));
     const currentTotalCost = parseFloat(totalProductionCost.toFixed(2));
     
-    // Check funds
     const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
     let currentStats: GameStats = { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0 };
     if (statsString) {
@@ -156,7 +156,6 @@ export default function DesignPhonePage() {
       return;
     }
     
-    // Deduct funds and add production transaction
     currentStats.totalFunds -= currentTotalCost;
     localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
     window.dispatchEvent(new CustomEvent('gameStatsChanged'));
@@ -180,8 +179,10 @@ export default function DesignPhonePage() {
       id: Date.now().toString(), 
       unitManufacturingCost: currentUnitCost,
       productionQuantity: data.productionQuantity,
-      currentStock: data.productionQuantity, // Initial stock is full production quantity
+      currentStock: data.productionQuantity, 
       imageUrl: `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
+      salePrice: parseFloat((currentUnitCost * SALE_MARKUP_FACTOR).toFixed(2)), // Default sale price
+      quantityListedForSale: 0, // Initially nothing is listed
     };
 
     try {
@@ -189,6 +190,7 @@ export default function DesignPhonePage() {
       const existingPhones: PhoneDesign[] = existingPhonesString ? JSON.parse(existingPhonesString) : [];
       existingPhones.push(phoneToSave);
       localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(existingPhones));
+      window.dispatchEvent(new CustomEvent('myPhonesChanged')); // Notify other components
       
       toast({
         title: t('phoneDesignSavedTitle'),
@@ -248,7 +250,7 @@ export default function DesignPhonePage() {
     { name: "frontCameraResolution" as keyof PhoneDesignFormData, labelKey: 'frontCameraResolutionLabel', icon: UserCircle, componentType: "Slider", min: 5, max: 100, step: 1, unit: "MP"},
     { name: "batteryCapacity" as keyof PhoneDesignFormData, labelKey: 'batteryCapacityLabel', icon: Zap, componentType: "Slider", min: 2000, max: 10000, step: 100, unit: "mAh" },
     { name: "material" as keyof PhoneDesignFormData, labelKey: 'materialLabel', icon: Smartphone, componentType: "Select", options: MATERIAL_OPTIONS.options },
-    { name: "color" as keyof PhoneDesignFormData, labelKey: 'colorLabel', icon: Palette, componentType: "Select", options: COLOR_OPTIONS.map(c => ({...c, cost: 0, label: t(c.label) || c.label })) }, // Translate color labels
+    { name: "color" as keyof PhoneDesignFormData, labelKey: 'colorLabel', icon: Palette, componentType: "Select", options: COLOR_OPTIONS.map(c => ({...c, cost: 0, label: t(c.label) || c.label })) }, 
     { name: "screenSize" as keyof PhoneDesignFormData, labelKey: 'screenSizeLabel', icon: MonitorSmartphone, componentType: "Slider", min: 5.0, max: 7.5, step: 0.1, unit: t('inchesUnit') },
     { name: "refreshRate" as keyof PhoneDesignFormData, labelKey: 'refreshRateLabel', icon: RefreshCw, componentType: "Select", options: REFRESH_RATE_OPTIONS.options },
     { name: "waterResistance" as keyof PhoneDesignFormData, labelKey: 'waterResistanceLabel', icon: Droplets, componentType: "Select", options: WATER_RESISTANCE_OPTIONS.options },
@@ -258,7 +260,7 @@ export default function DesignPhonePage() {
     { name: "height" as keyof PhoneDesignFormData, labelKey: 'heightLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
     { name: "width" as keyof PhoneDesignFormData, labelKey: 'widthLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
     { name: "thickness" as keyof PhoneDesignFormData, labelKey: 'thicknessLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
-    { name: "productionQuantity" as keyof PhoneDesignFormData, labelKey: 'productionQuantityLabel', icon: Package, componentType: "Input", inputType: "number", unit: t('productionQuantityUnit')},
+    { name: "productionQuantity" as keyof PhoneDesignFormData, labelKey: 'productionQuantityLabel', icon: Package, componentType: "Slider", min: 1, max: 10000, step: 1, unit: t('productionQuantityUnit')},
   ];
 
   return (
@@ -275,18 +277,12 @@ export default function DesignPhonePage() {
                 <Label htmlFor={field.name} className="flex items-center">
                   {field.icon && <field.icon className="w-4 h-4 mr-2 text-muted-foreground" />}
                   {t(field.labelKey)}
-                  {(field.componentType === "Slider" || (field.componentType === "Input" && field.inputType === "number") ) && field.name !== 'productionQuantity' && (
+                  {(field.componentType === "Slider") && (
                     <span className="ml-auto text-sm text-foreground">
                       {watchedValues[field.name as keyof PhoneDesignFormData]}
-                      {field.unit ? ` ${field.unit}` : ''}
+                      {field.unit ? ` ${t(field.unit) || field.unit}` : ''}
                     </span>
                   )}
-                   {field.name === 'productionQuantity' && (
-                     <span className="ml-auto text-sm text-foreground">
-                       {getValues(field.name as keyof PhoneDesignFormData)}
-                       {field.unit ? ` ${field.unit}` : ''}
-                     </span>
-                   )}
                 </Label>
                 <Controller
                   name={field.name}
@@ -329,7 +325,7 @@ export default function DesignPhonePage() {
                             let val: string | number = e.target.value;
                             if (field.inputType === 'number') {
                                 val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                                if (isNaN(val as number) && e.target.value !== '') val = 0; // Keep empty if user deletes, else default to 0 for invalid
+                                if (isNaN(val as number) && e.target.value !== '') val = 0; 
                             }
                             commonProps.onChange(val);
                           }}
@@ -383,7 +379,7 @@ export default function DesignPhonePage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-primary">${totalProductionCost.toFixed(2)}</p>
-             <p className="text-sm text-muted-foreground mt-1">{t('totalProductionCostDesc', { quantity: watchedValues.productionQuantity || 0 })}</p>
+             <p className="text-sm text-muted-foreground mt-1">{t('totalProductionCostDesc', { quantity: typeof watchedValues.productionQuantity === 'number' ? watchedValues.productionQuantity : 0 })}</p>
           </CardContent>
         </Card>
 
@@ -396,8 +392,8 @@ export default function DesignPhonePage() {
               className="bg-muted rounded-xl border-4 border-foreground/50 flex items-center justify-center p-1 overflow-hidden" 
               style={{ 
                 borderColor: watchedValues.color, 
-                width: `${Math.max(60, watchedValues.width * 0.4 + 40)}px`, 
-                height: `${Math.max(120, watchedValues.height * 0.4 + 80)}px`,
+                width: `${Math.max(60, (watchedValues.width || 75) * 0.4 + 40)}px`, 
+                height: `${Math.max(120, (watchedValues.height || 160) * 0.4 + 80)}px`,
               }}
             >
               <div className="w-full h-full bg-background rounded-sm flex flex-col items-center justify-center text-center p-1">
@@ -413,7 +409,7 @@ export default function DesignPhonePage() {
               {`${MATERIAL_OPTIONS.options?.find(o=>o.value === watchedValues.material)?.label}, ${COLOR_OPTIONS.find(c => c.value === watchedValues.color)?.label || t('customColor')}`}
             </p>
             <p className="text-xs text-muted-foreground text-center">
-              {`${watchedValues.height}mm x ${watchedValues.width}mm x ${watchedValues.thickness}mm`}
+              {`${watchedValues.height || 160}mm x ${watchedValues.width || 75}mm x ${watchedValues.thickness || 8}mm`}
             </p>
              {watchedValues.nfcSupport && <p className="text-xs text-muted-foreground text-center flex items-center mt-1"><SmartphoneNfc className="w-3 h-3 mr-1"/>NFC</p>}
              <p className="text-xs text-muted-foreground text-center mt-1">{WATER_RESISTANCE_OPTIONS.options?.find(o=>o.value === watchedValues.waterResistance)?.label}</p>

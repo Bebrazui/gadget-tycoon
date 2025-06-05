@@ -45,10 +45,14 @@ export interface PhoneDesign {
   
   unitManufacturingCost: number; // Cost to produce ONE unit
   productionQuantity: number; // How many were produced in the initial batch
-  currentStock: number; // How many are left from that batch (produced - sold)
+  currentStock: number; // How many are left from that batch (produced - sold directly by player or not listed)
 
   review?: string; // AI-generated review for the design
   imageUrl?: string; // Placeholder for a generated image if needed
+
+  // New fields for market sales
+  salePrice: number; // Price set by the user for market sale
+  quantityListedForSale: number; // How many units are currently on the market
 }
 
 export interface Brand {
@@ -60,14 +64,14 @@ export interface Brand {
 export interface Transaction {
   id: string;
   date: string; // ISO date string or formatted string
-  description: string; // This can be a translation key
+  description: string; // This can be a translation key or a pre-formatted string with placeholders
   amount: number; // Positive for income, negative for expense
   type: 'income' | 'expense';
 }
 
 export interface GameStats {
   totalFunds: number;
-  phonesSold: number;
+  phonesSold: number; // Total phones sold (both direct and market)
   brandReputation: number; // Or a string like "Neutral", "Good", "Bad"
 }
 
@@ -166,6 +170,8 @@ export const LOCAL_STORAGE_MY_PHONES_KEY = 'myPhones'; // Existing key for phone
 export const LOCAL_STORAGE_BRAND_KEY = 'gadgetTycoon_brand';
 
 // Game Balance
-export const SALE_MARKUP_FACTOR = 1.5; // Sell price = unitManufacturingCost * SALE_MARKUP_FACTOR
+export const SALE_MARKUP_FACTOR = 1.5; // Default markup for initial salePrice = unitManufacturingCost * SALE_MARKUP_FACTOR
 export const INITIAL_FUNDS = 50000;
 export const BASE_DESIGN_ASSEMBLY_COST = 50; // Base cost added to each unit
+export const MARKET_SALE_CHANCE = 0.3; // 30% chance to sell a listed unit per market day simulation per unit
+export const MARKET_MAX_SALES_PER_PHONE_PER_DAY = 3; // Max units of a single phone model that can be sold in one market day

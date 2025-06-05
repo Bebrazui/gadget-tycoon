@@ -5,12 +5,14 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw, HandCoins, Package } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw, HandCoins, Package, TrendingUp, Edit } from 'lucide-react';
 import Image from 'next/image';
-import type { PhoneDesign, Transaction, GameStats } from '@/lib/types';
+import type { PhoneDesign } from '@/lib/types';
 import { 
-  LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY,
-  SALE_MARKUP_FACTOR, INITIAL_FUNDS
+  LOCAL_STORAGE_MY_PHONES_KEY,
+  SALE_MARKUP_FACTOR
 } from '@/lib/types';
 import { useTranslation } from '@/hooks/useTranslation';
 import { SectionTitle } from '@/components/shared/SectionTitle';
@@ -31,17 +33,25 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Separator } from '@/components/ui/separator';
+
+interface SalesFormData {
+  [phoneId: string]: {
+    price: string;
+    quantityToList: string;
+  };
+}
 
 export default function MyPhonesPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [savedPhones, setSavedPhones] = useState<PhoneDesign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [salesFormData, setSalesFormData] = useState<SalesFormData>({});
 
   useEffect(() => {
     loadPhones();
     setIsLoading(false);
-     // Listen for changes triggered by other pages (like design page saving a new phone)
     window.addEventListener('myPhonesChanged', loadPhones);
     return () => {
       window.removeEventListener('myPhonesChanged', loadPhones);
@@ -50,10 +60,22 @@ export default function MyPhonesPage() {
 
   const loadPhones = () => {
     const phonesFromStorage = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
+    let phones: PhoneDesign[] = [];
     if (phonesFromStorage) {
-      setSavedPhones(JSON.parse(phonesFromStorage));
+      phones = JSON.parse(phonesFromStorage);
+      setSavedPhones(phones);
+      // Initialize sales form data
+      const initialSalesData: SalesFormData = {};
+      phones.forEach(phone => {
+        initialSalesData[phone.id] = {
+          price: (phone.salePrice || (phone.unitManufacturingCost * SALE_MARKUP_FACTOR)).toFixed(2),
+          quantityToList: '0',
+        };
+      });
+      setSalesFormData(initialSalesData);
     } else {
       setSavedPhones([]);
+      setSalesFormData({});
     }
   };
 
@@ -66,63 +88,105 @@ export default function MyPhonesPage() {
     const updatedPhones = savedPhones.filter(phone => phone.id !== phoneId);
     setSavedPhones(updatedPhones);
     localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
+    // Also remove from sales form data
+    setSalesFormData(prev => {
+      const newData = {...prev};
+      delete newData[phoneId];
+      return newData;
+    });
     toast({
       title: t('phoneDeletedTitle'),
       description: t('phoneDeletedDesc'),
     });
+    window.dispatchEvent(new CustomEvent('myPhonesChanged')); // To update any listeners
   };
 
-  const handleSellUnit = (phoneToSell: PhoneDesign) => {
-    if ((phoneToSell.currentStock || 0) <= 0) {
+  const handleSalesInputChange = (phoneId: string, field: 'price' | 'quantityToList', value: string) => {
+    setSalesFormData(prev => ({
+      ...prev,
+      [phoneId]: {
+        ...prev[phoneId],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleListForSale = (phoneId: string) => {
+    const phone = savedPhones.find(p => p.id === phoneId);
+    if (!phone) return;
+
+    const formData = salesFormData[phoneId];
+    const quantityToList = parseInt(formData.quantityToList, 10);
+    const newSalePrice = parseFloat(formData.price);
+
+    if (isNaN(quantityToList) || quantityToList <= 0) {
+      toast({ variant: "destructive", title: t('genericErrorTitle'), description: t('invalidQuantityNegative') });
+      return;
+    }
+    if (isNaN(newSalePrice) || newSalePrice <= 0) {
+      toast({ variant: "destructive", title: t('genericErrorTitle'), description: t('invalidPriceNegative') });
+      return;
+    }
+    if (quantityToList > (phone.currentStock || 0)) {
       toast({
         variant: "destructive",
         title: t('genericErrorTitle'),
-        description: t('noStockToSell', { name: phoneToSell.name }),
+        description: t('notEnoughStockToList', { quantity: quantityToList, availableStock: phone.currentStock || 0 }),
       });
       return;
     }
 
-    // 1. Update Phone Stock
-    const updatedPhones = savedPhones.map(p => 
-      p.id === phoneToSell.id ? { ...p, currentStock: (p.currentStock || 0) - 1 } : p
-    );
+    const updatedPhones = savedPhones.map(p => {
+      if (p.id === phoneId) {
+        return {
+          ...p,
+          currentStock: (p.currentStock || 0) - quantityToList,
+          quantityListedForSale: (p.quantityListedForSale || 0) + quantityToList,
+          salePrice: newSalePrice,
+        };
+      }
+      return p;
+    });
+
     setSavedPhones(updatedPhones);
     localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
+    // Reset quantity to list for this phone
+    setSalesFormData(prev => ({
+        ...prev,
+        [phoneId]: {
+            ...prev[phoneId],
+            quantityToList: '0', // Reset after listing
+            price: newSalePrice.toFixed(2) // Ensure price is updated in form state
+        }
+    }));
 
-    // 2. Update Game Stats (Total Funds, Phones Sold)
-    const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
-    let currentStats: GameStats = { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0 };
-    if (statsString) {
-      currentStats = JSON.parse(statsString);
-    }
-    const salePrice = parseFloat(((phoneToSell.unitManufacturingCost || 0) * SALE_MARKUP_FACTOR).toFixed(2));
-    currentStats.totalFunds += salePrice;
-    currentStats.phonesSold += 1;
-    localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
-    window.dispatchEvent(new CustomEvent('gameStatsChanged'));
-
-    // 3. Add Transaction
-    const transactionsString = localStorage.getItem(LOCAL_STORAGE_TRANSACTIONS_KEY);
-    let currentTransactions: Transaction[] = [];
-    if (transactionsString) {
-      currentTransactions = JSON.parse(transactionsString);
-    }
-    const newTransaction: Transaction = {
-      id: `txn_sale_${Date.now()}_${phoneToSell.id}`,
-      date: new Date().toISOString(),
-      description: t('transactionSaleOf', { phoneName: phoneToSell.name }),
-      amount: salePrice,
-      type: 'income',
-    };
-    currentTransactions.push(newTransaction);
-    localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
-    window.dispatchEvent(new CustomEvent('transactionsChanged'));
-
-    // 4. Show Toast
     toast({
-      title: t('phoneSoldToastTitle'),
-      description: t('phoneSoldToastDesc', { name: phoneToSell.name, price: salePrice.toFixed(2) }),
+      title: t('phoneListedSuccessfully', { quantity: quantityToList, phoneName: phone.name, price: newSalePrice.toFixed(2) }),
     });
+    window.dispatchEvent(new CustomEvent('myPhonesChanged'));
+  };
+  
+  const handleUpdatePrice = (phoneId: string) => {
+      const phone = savedPhones.find(p => p.id === phoneId);
+      if (!phone) return;
+
+      const formData = salesFormData[phoneId];
+      const newSalePrice = parseFloat(formData.price);
+
+      if (isNaN(newSalePrice) || newSalePrice <= 0) {
+          toast({ variant: "destructive", title: t('genericErrorTitle'), description: t('invalidPriceNegative') });
+          return;
+      }
+
+      const updatedPhones = savedPhones.map(p => 
+          p.id === phoneId ? { ...p, salePrice: newSalePrice } : p
+      );
+      setSavedPhones(updatedPhones);
+      localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
+      toast({
+          title: t('priceUpdatedSuccessfully', { phoneName: phone.name, price: newSalePrice.toFixed(2) }),
+      });
+      window.dispatchEvent(new CustomEvent('myPhonesChanged'));
   };
 
 
@@ -181,7 +245,7 @@ export default function MyPhonesPage() {
                 </CardTitle>
                 <CardDescription>
                   <span className="block">{t('unitManufacturingCostLabel')}: ${(phone.unitManufacturingCost || 0).toFixed(2)}</span>
-                  <span className="block">{t('currentStockLabel')}: {phone.currentStock || 0} / {phone.productionQuantity || 0} ({t('productionQuantityInfoLabel')})</span>
+                  <span className="block">{t('productionQuantityInfoLabel')}: {phone.productionQuantity || 0}</span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-grow space-y-4">
@@ -217,19 +281,57 @@ export default function MyPhonesPage() {
                     <p className="text-sm text-muted-foreground italic line-clamp-3">"{phone.review}"</p>
                   </div>
                 )}
+                <Separator className="my-4"/>
+                <div className="space-y-3">
+                    <h4 className="font-semibold flex items-center"><TrendingUp className="inline h-4 w-4 mr-1 text-primary"/>{t('salesManagementSectionTitle')}</h4>
+                    <p className="text-sm">
+                        {t('currentStockLabel')}: <span className="font-medium">{phone.currentStock || 0}</span>
+                    </p>
+                     <p className="text-sm">
+                        {t('quantityListedForSaleLabel')}: <span className="font-medium">{phone.quantityListedForSale || 0}</span>
+                    </p>
+                    <div className="space-y-1">
+                        <Label htmlFor={`price-${phone.id}`} className="text-xs">{t('setSalePriceLabel')}</Label>
+                        <div className="flex items-center gap-2">
+                             <Input 
+                                type="number" 
+                                id={`price-${phone.id}`}
+                                value={salesFormData[phone.id]?.price || ''}
+                                onChange={(e) => handleSalesInputChange(phone.id, 'price', e.target.value)}
+                                className="h-8 text-sm"
+                                step="0.01"
+                                min="0"
+                            />
+                            <Button size="sm" variant="outline" onClick={() => handleUpdatePrice(phone.id)}><Edit className="w-3 h-3 mr-1"/>{t('updatePriceButton')}</Button>
+                        </div>
+
+                    </div>
+                     <div className="space-y-1">
+                        <Label htmlFor={`qty-${phone.id}`} className="text-xs">{t('quantityToNewLabel')}</Label>
+                        <Input 
+                            type="number" 
+                            id={`qty-${phone.id}`}
+                            value={salesFormData[phone.id]?.quantityToList || '0'}
+                            onChange={(e) => handleSalesInputChange(phone.id, 'quantityToList', e.target.value)}
+                            className="h-8 text-sm"
+                            min="0"
+                            max={phone.currentStock || 0}
+                        />
+                    </div>
+                    <Button 
+                        variant="default" 
+                        size="sm"
+                        className="w-full" 
+                        onClick={() => handleListForSale(phone.id)}
+                        disabled={(phone.currentStock || 0) <= 0 || parseInt(salesFormData[phone.id]?.quantityToList || '0', 10) <= 0}
+                    >
+                        <HandCoins className="inline h-4 w-4 mr-2"/>{t('listForSaleButton')}
+                    </Button>
+                </div>
               </CardContent>
-               <CardFooter className="grid grid-cols-2 gap-2">
+               <CardFooter className="pt-4">
                  <Button variant="outline" className="w-full" asChild>
-                    {/* Link to view/edit design, for now just links to general design page */}
                     <Link href={`/design?edit=${phone.id}`}>{t('editDesignButton')}</Link> 
-                 </Button>
-                 <Button 
-                    variant="default" 
-                    className="w-full" 
-                    onClick={() => handleSellUnit(phone)}
-                    disabled={(phone.currentStock || 0) <= 0}
-                  >
-                    <HandCoins className="inline h-4 w-4 mr-2"/>{t('sellOneUnitButton')}
                  </Button>
                </CardFooter>
             </Card>
@@ -239,6 +341,3 @@ export default function MyPhonesPage() {
     </div>
   );
 }
-
-
-    
