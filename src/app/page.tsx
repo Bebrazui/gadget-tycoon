@@ -17,7 +17,7 @@ import {
     MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL, MARKET_SALE_CHANCE_PER_UNIT,
     LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, MARKET_CATCH_UP_THRESHOLD_MINUTES,
     MARKET_MAX_CATCH_UP_INTERVALS,
-    XP_PER_PHONE_SOLD, calculateXpToNextLevel
+    XP_PER_PHONE_SOLD, XP_FOR_DESIGNING_PHONE, calculateXpToNextLevel
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -52,7 +52,7 @@ export default function DashboardPage() {
     let currentPhones: PhoneDesign[] = currentPhonesString ? JSON.parse(currentPhonesString) : [];
     
     let currentStatsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
-    let currentStats: GameStats = currentStatsString ? JSON.parse(JSON.parse(currentStatsString)) : { ...defaultGameStats };
+    let currentStats: GameStats = currentStatsString ? JSON.parse(currentStatsString) : { ...defaultGameStats };
     if (currentStats.level === undefined) currentStats.level = 1;
     if (currentStats.xp === undefined) currentStats.xp = 0;
 
@@ -63,7 +63,6 @@ export default function DashboardPage() {
     let phonesModifiedInLoop = false;
 
     for (let i = 0; i < catchUpIntervals; i++) {
-      let salesInThisInterval = false;
       currentPhones = currentPhones.map(phone => {
         if (phone.quantityListedForSale > 0) {
           let salesForThisPhoneInInterval = 0;
@@ -83,7 +82,6 @@ export default function DashboardPage() {
             totalRevenueThisCycle += revenueFromThisPhone;
             totalPhonesSoldThisCycle += salesForThisPhoneInInterval;
             xpGainedThisCycle += XP_PER_PHONE_SOLD * salesForThisPhoneInInterval;
-            salesInThisInterval = true;
             phonesModifiedInLoop = true;
 
             salesNotificationsForCycle.push(t('marketDaySaleNotification', {
@@ -130,7 +128,7 @@ export default function DashboardPage() {
       localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
       localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
       
-      setGameStats(currentStats); 
+      setGameStats(prevStats => ({...prevStats, ...currentStats})); 
       setDisplayStats({ 
           totalFunds: `$${currentStats.totalFunds.toLocaleString(language)}`,
           phonesSold: currentStats.phonesSold.toLocaleString(language),
@@ -148,7 +146,6 @@ export default function DashboardPage() {
     });
 
     if (!isCatchUp && totalPhonesSoldThisCycle === 0 && currentPhones.every(p => p.quantityListedForSale === 0) && currentPhones.length > 0) {
-      // Only show "no phones listed" if not a catch-up and some phones exist but none are listed
        if (currentPhones.length > 0 && currentPhones.every(p => p.quantityListedForSale === 0)) {
         toast({
             title: t('marketDaySummaryTitle'),
@@ -169,8 +166,8 @@ export default function DashboardPage() {
           const parsedStats = JSON.parse(storedStatsString) as GameStats;
           if (typeof parsedStats.totalFunds === 'number' && typeof parsedStats.phonesSold === 'number') {
               currentStats = {
-                ...defaultGameStats, // ensure all fields from default are present
-                ...parsedStats,     // then override with stored values
+                ...defaultGameStats, 
+                ...parsedStats,     
               };
           } else { 
               localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(defaultGameStats));
@@ -178,11 +175,12 @@ export default function DashboardPage() {
         } catch (error) {
           console.error("Error parsing game stats from localStorage:", error);
           localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(defaultGameStats));
+          toast({ variant: "destructive", title: t('localStorageErrorTitle'), description: t('localStorageErrorGameStatsDesc')});
         }
       } else {
         localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(defaultGameStats));
       }
-      // Ensure level and xp are initialized
+      
       if (currentStats.level === undefined) currentStats.level = 1;
       if (currentStats.xp === undefined) currentStats.xp = 0;
 
@@ -200,7 +198,7 @@ export default function DashboardPage() {
     };
     window.addEventListener('gameStatsChanged', handleStatsUpdate);
 
-    // Catch-up simulation
+    
     const lastSimTime = localStorage.getItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY);
     if (lastSimTime) {
       const timeDiffMs = Date.now() - parseInt(lastSimTime, 10);
@@ -216,12 +214,12 @@ export default function DashboardPage() {
         }
       }
     } else {
-      // First time, set last sim time
+      
       localStorage.setItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, Date.now().toString());
     }
 
 
-    // Setup interval for regular simulation
+    
     if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
     simulationIntervalRef.current = setInterval(() => {
       performMarketSimulation(false, 1);
@@ -233,7 +231,7 @@ export default function DashboardPage() {
         if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
     };
 
-  }, [language, performMarketSimulation]);
+  }, [language, performMarketSimulation, t, toast]);
 
 
   const brandReputationText = (rep: number) => {
