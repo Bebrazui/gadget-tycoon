@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useFormStatus } from "react"; // Changed useFormState to useActionState and imported from "react"
 import { getTrendForecast, type TrendForecastingFormState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,7 @@ function SubmitButton() {
 export default function TrendForecastingPage() {
   const { t } = useTranslation();
   const initialState: TrendForecastingFormState = { message: null, errors: {}, trends: [] };
-  const [state, formAction] = useFormState(getTrendForecast, initialState);
+  const [state, formAction] = useActionState(getTrendForecast, initialState); // Changed useFormState to useActionState
 
   return (
     <div className="space-y-8">
