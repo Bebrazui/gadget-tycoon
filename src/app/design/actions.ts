@@ -5,7 +5,7 @@ import { generatePhoneReview, type GeneratePhoneReviewInput, type GeneratePhoneR
 import type { PhoneDesign } from "@/lib/types";
 import { 
     PROCESSOR_OPTIONS, DISPLAY_OPTIONS, MATERIAL_OPTIONS, 
-    REFRESH_RATE_OPTIONS, WATER_RESISTANCE_OPTIONS 
+    REFRESH_RATE_OPTIONS, WATER_RESISTANCE_OPTIONS, BASE_DESIGN_ASSEMBLY_COST
 } from '@/lib/types';
 
 export type GenerateReviewFormState = {
@@ -14,8 +14,9 @@ export type GenerateReviewFormState = {
   error?: boolean;
 };
 
-export async function getPhoneReview(
-  phoneDetails: PhoneDesign
+// This function is for the AI design review, it uses unitManufacturingCost
+export async function getPhoneDesignReview(
+  phoneDetails: Omit<PhoneDesign, 'id' | 'productionQuantity' | 'currentStock' | 'imageUrl'> & {unitManufacturingCost: number}
 ): Promise<GenerateReviewFormState> {
   try {
     const specialFeatures: string[] = [];
@@ -38,7 +39,7 @@ export async function getPhoneReview(
       batteryCapacity: phoneDetails.batteryCapacity,
       material: MATERIAL_OPTIONS.options?.find(opt => opt.value === phoneDetails.material)?.label || phoneDetails.material,
       specialFeatures: specialFeatures,
-      estimatedCost: phoneDetails.estimatedCost,
+      estimatedCost: phoneDetails.unitManufacturingCost, // Use unit cost for AI review context
     };
 
     const result = await generatePhoneReview(input);

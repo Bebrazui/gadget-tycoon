@@ -11,11 +11,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import type { Transaction } from '@/lib/types';
 import { LOCAL_STORAGE_TRANSACTIONS_KEY } from '@/lib/types';
 
-const defaultInitialTransactions: Transaction[] = [
-  // { id: "txn_1", date: "2024-07-15", description: "Component Purchase - OLED Screens", amount: -12000, type: "expense" },
-  // { id: "txn_3", date: "2024-07-18", description: "Marketing Campaign - Social Media", amount: -5000, type: "expense" },
-  // { id: "txn_4", date: "2024-07-20", description: "Software Licensing", amount: -2500, type: "expense" },
-];
+const defaultInitialTransactions: Transaction[] = [];
 
 
 export default function FinancialsPage() {
@@ -23,7 +19,7 @@ export default function FinancialsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [financialSummary, setFinancialSummary] = useState({
     revenue: 0,
-    costs: 0,
+    costs: 0, // Renamed from expenses to represent total costs/expenses
     profit: 0,
   });
 
@@ -39,14 +35,14 @@ export default function FinancialsPage() {
           localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(defaultInitialTransactions));
         }
       } else {
+        // If no transactions, still set an empty array and save it to avoid repeated checks
         localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(defaultInitialTransactions));
       }
-      setTransactions(currentTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())); // Sort by date descending
+      setTransactions(currentTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())); 
     };
     
     loadTransactions();
 
-     // Listener for custom event to update transactions from other components/pages
     const handleTransactionsUpdate = () => {
       loadTransactions();
     };
@@ -59,26 +55,38 @@ export default function FinancialsPage() {
 
   useEffect(() => {
     let revenue = 0;
-    let costs = 0; // For simplicity, costs are negative amounts in transactions that are expenses. Sales will have associated costs.
+    let costs = 0;
 
     transactions.forEach(txn => {
       if (txn.type === 'income') {
-        revenue += txn.amount;
+        revenue += txn.amount; // Amount is positive for income
       } else if (txn.type === 'expense') {
-        // For "Sale of X" transactions, the 'amount' is revenue. We need to deduce cost.
-        // This part is simplified. A real system would store cost of goods sold (COGS) with the sale.
-        // For now, let's assume if a phone is sold, its estimatedCost is the "cost" part.
-        // However, generic expenses are just subtracted from profit directly.
-        costs += Math.abs(txn.amount); // Add absolute value of expenses to total costs
+        costs += Math.abs(txn.amount); // Amount is negative for expense, so use abs for summing costs
       }
     });
     
-    // A more accurate profit calculation would be (total revenue from sales) - (total COGS for those sales) - (other expenses)
-    // Simplified profit:
     const profit = revenue - costs;
 
     setFinancialSummary({ revenue, costs, profit });
   }, [transactions]);
+
+  const getTransactionDescription = (txn: Transaction): string => {
+    // Check if the description is a key or a direct string
+    // Simple check: if it contains spaces or special characters, assume it's already translated or a dynamic value
+    // This is a heuristic and might need refinement if keys can contain spaces
+    if (txn.description.includes("{{") && txn.description.includes("}}")) { // Placeholder for dynamic values
+        const key = txn.description.substring(0, txn.description.indexOf("{{")).trim();
+        const paramsString = txn.description.substring(txn.description.indexOf("{{")+2, txn.description.lastIndexOf("}}"));
+        try {
+            const params = JSON.parse(paramsString);
+            return t(key, params);
+        } catch (e) {
+             // If params are not valid JSON, or other issues, try translating the key directly or return as is
+        }
+    }
+    // For direct translation keys or already-formatted strings
+    return t(txn.description) || txn.description;
+  }
 
 
   return (
@@ -146,7 +154,10 @@ export default function FinancialsPage() {
                   <TableRow key={txn.id}>
                     <TableCell>{new Date(txn.date).toLocaleDateString(t('languageLabel') === 'Русский' ? 'ru-RU' : 'en-US')}</TableCell>
                     <TableCell className="font-medium">
-                      {txn.description.startsWith("Sale of ") ? t('transactionSaleOf', { phoneName: txn.description.substring(9)}) : t(txn.description) || txn.description}
+                       {/* Use the smart translation for description */}
+                       {txn.description.startsWith("transactionSaleOf") ? t('transactionSaleOf', {phoneName: txn.description.substring(txn.description.indexOf("{{")+14, txn.description.indexOf("}}"))}) : 
+                        txn.description.startsWith("transactionProductionOf") ? t('transactionProductionOf', {quantity: txn.description.substring(txn.description.indexOf("{{quantity:")+11, txn.description.indexOf(",")), phoneName: txn.description.substring(txn.description.indexOf("phoneName:")+10, txn.description.lastIndexOf("}}")) }) :
+                        t(txn.description) || txn.description}
                     </TableCell>
                     <TableCell className={`text-right font-semibold ${txn.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
                       {txn.type === 'income' ? '+' : '-'}${Math.abs(txn.amount).toLocaleString()}
@@ -156,7 +167,7 @@ export default function FinancialsPage() {
               </TableBody>
             </Table>
           ) : (
-             <p className="text-sm text-muted-foreground">{t('noTransactionsYet') || "No transactions recorded yet."}</p>
+             <p className="text-sm text-muted-foreground">{t('noTransactionsYet')}</p>
           )}
         </CardContent>
       </Card>

@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
   DollarSign, HardDrive, Smartphone, Palette, Ruler, Zap, Camera, Loader2,
-  MonitorSmartphone, RefreshCw, Droplets, GalleryVertical, SmartphoneNfc, Cog, UserCircle, Info, AlertCircle, Edit3
+  MonitorSmartphone, RefreshCw, Droplets, GalleryVertical, SmartphoneNfc, Cog, UserCircle, Info, AlertCircle, Edit3, Package
 } from 'lucide-react';
 import Image from 'next/image';
 import {
@@ -23,32 +23,36 @@ import {
   RAM_COST_PER_GB, STORAGE_COST_PER_GB, CAMERA_COST_PER_MP, BATTERY_COST_PER_100MAH,
   REFRESH_RATE_OPTIONS, WATER_RESISTANCE_OPTIONS, SIM_SLOT_OPTIONS, NFC_COST,
   OPERATING_SYSTEM_OPTIONS, FRONT_CAMERA_COST_PER_MP, SCREEN_SIZE_COST_FACTOR,
-  type PhoneDesign, type PhoneComponentOption
+  type PhoneDesign, type PhoneComponentOption, type GameStats, type Transaction,
+  LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY,
+  INITIAL_FUNDS, BASE_DESIGN_ASSEMBLY_COST
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/hooks/useTranslation';
-import { getPhoneReview, type GenerateReviewFormState } from './actions';
+import { getPhoneDesignReview, type GenerateReviewFormState } from './actions';
+
 
 const phoneDesignSchema = z.object({
-  name: z.string().min(3, "Phone name must be at least 3 characters").max(50, "Phone name must be at most 50 characters"),
-  processor: z.string().min(1, "Processor is required"),
-  displayType: z.string().min(1, "Display type is required"),
+  name: z.string().min(3, "validation_min3chars").max(50, "validation_max50chars"),
+  processor: z.string().min(1, "validation_required"),
+  displayType: z.string().min(1, "validation_required"),
   ram: z.number().min(2).max(32),
   storage: z.number().min(32).max(2048),
   cameraResolution: z.number().min(8).max(200),
   batteryCapacity: z.number().min(2000).max(10000),
-  material: z.string().min(1, "Material is required"),
-  color: z.string().min(1, "Color is required"),
+  material: z.string().min(1, "validation_required"),
+  color: z.string().min(1, "validation_required"),
   height: z.number().min(100).max(200),
   width: z.number().min(50).max(100),
   thickness: z.number().min(5).max(15),
   screenSize: z.number().min(5.0).max(7.5).step(0.1),
-  refreshRate: z.string().min(1, "Refresh rate is required"),
-  waterResistance: z.string().min(1, "Water resistance rating is required"),
-  simSlots: z.string().min(1, "SIM slot configuration is required"),
+  refreshRate: z.string().min(1, "validation_required"),
+  waterResistance: z.string().min(1, "validation_required"),
+  simSlots: z.string().min(1, "validation_required"),
   nfcSupport: z.boolean(),
-  operatingSystem: z.string().min(1, "Operating system is required"),
+  operatingSystem: z.string().min(1, "validation_required"),
   frontCameraResolution: z.number().min(5).max(100),
+  productionQuantity: z.number().min(1, "validation_minProduction").max(10000, "validation_maxProduction").positive("validation_positiveNumber"),
 });
 
 type PhoneDesignFormData = z.infer<typeof phoneDesignSchema>;
@@ -73,17 +77,19 @@ const defaultValues: PhoneDesignFormData = {
   nfcSupport: false,
   operatingSystem: OPERATING_SYSTEM_OPTIONS.options?.[0].value || '',
   frontCameraResolution: 12,
+  productionQuantity: 100,
 };
 
 export default function DesignPhonePage() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [estimatedCost, setEstimatedCost] = useState(0);
+  const [unitManufacturingCost, setUnitManufacturingCost] = useState(0);
+  const [totalProductionCost, setTotalProductionCost] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingReview, setIsGeneratingReview] = useState(false);
   const [reviewState, setReviewState] = useState<GenerateReviewFormState | null>(null);
 
-  const { control, handleSubmit, watch, formState: { errors }, reset } = useForm<PhoneDesignFormData>({
+  const { control, handleSubmit, watch, formState: { errors }, reset, getValues } = useForm<PhoneDesignFormData>({
     resolver: zodResolver(phoneDesignSchema),
     defaultValues,
   });
@@ -94,67 +100,119 @@ export default function DesignPhonePage() {
     return optionsArray?.find(opt => opt.value === value)?.cost || 0;
   };
 
-  const calculateCost = useCallback(() => {
-    let cost = 0;
-    cost += getOptionCost(PROCESSOR_OPTIONS.options, watchedValues.processor);
-    cost += getOptionCost(DISPLAY_OPTIONS.options, watchedValues.displayType);
-    cost += getOptionCost(MATERIAL_OPTIONS.options, watchedValues.material);
-    cost += watchedValues.ram * RAM_COST_PER_GB;
-    cost += watchedValues.storage * STORAGE_COST_PER_GB;
-    cost += watchedValues.cameraResolution * CAMERA_COST_PER_MP;
-    cost += (watchedValues.batteryCapacity / 100) * BATTERY_COST_PER_100MAH;
-    cost += (watchedValues.screenSize - 5.0) * SCREEN_SIZE_COST_FACTOR;
-    cost += getOptionCost(REFRESH_RATE_OPTIONS.options, watchedValues.refreshRate);
-    cost += getOptionCost(WATER_RESISTANCE_OPTIONS.options, watchedValues.waterResistance);
-    cost += getOptionCost(SIM_SLOT_OPTIONS.options, watchedValues.simSlots);
-    if (watchedValues.nfcSupport) cost += NFC_COST;
-    cost += getOptionCost(OPERATING_SYSTEM_OPTIONS.options, watchedValues.operatingSystem);
-    cost += watchedValues.frontCameraResolution * FRONT_CAMERA_COST_PER_MP;
-    cost += 50; // Base design & assembly cost
-    setEstimatedCost(cost);
+  const calculateCosts = useCallback(() => {
+    let unitCost = 0;
+    unitCost += getOptionCost(PROCESSOR_OPTIONS.options, watchedValues.processor);
+    unitCost += getOptionCost(DISPLAY_OPTIONS.options, watchedValues.displayType);
+    unitCost += getOptionCost(MATERIAL_OPTIONS.options, watchedValues.material);
+    unitCost += watchedValues.ram * RAM_COST_PER_GB;
+    unitCost += watchedValues.storage * STORAGE_COST_PER_GB;
+    unitCost += watchedValues.cameraResolution * CAMERA_COST_PER_MP;
+    unitCost += (watchedValues.batteryCapacity / 100) * BATTERY_COST_PER_100MAH;
+    unitCost += (watchedValues.screenSize - 5.0) * SCREEN_SIZE_COST_FACTOR; // Assuming 5.0 is base size with no extra cost
+    unitCost += getOptionCost(REFRESH_RATE_OPTIONS.options, watchedValues.refreshRate);
+    unitCost += getOptionCost(WATER_RESISTANCE_OPTIONS.options, watchedValues.waterResistance);
+    unitCost += getOptionCost(SIM_SLOT_OPTIONS.options, watchedValues.simSlots);
+    if (watchedValues.nfcSupport) unitCost += NFC_COST;
+    unitCost += getOptionCost(OPERATING_SYSTEM_OPTIONS.options, watchedValues.operatingSystem);
+    unitCost += watchedValues.frontCameraResolution * FRONT_CAMERA_COST_PER_MP;
+    unitCost += BASE_DESIGN_ASSEMBLY_COST; // Base design & assembly cost per unit
+    
+    setUnitManufacturingCost(parseFloat(unitCost.toFixed(2)));
+    setTotalProductionCost(parseFloat((unitCost * watchedValues.productionQuantity).toFixed(2)));
+
   }, [watchedValues]);
 
   useEffect(() => {
-    calculateCost();
-  }, [watchedValues, calculateCost]);
+    calculateCosts();
+  }, [watchedValues, calculateCosts]);
 
   const onSubmit = async (data: PhoneDesignFormData) => {
     setIsSubmitting(true);
-    setReviewState(null); // Clear previous review state
+    setReviewState(null); 
+
+    const currentUnitCost = parseFloat(unitManufacturingCost.toFixed(2));
+    const currentTotalCost = parseFloat(totalProductionCost.toFixed(2));
+    
+    // Check funds
+    const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
+    let currentStats: GameStats = { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0 };
+    if (statsString) {
+      currentStats = JSON.parse(statsString);
+    }
+
+    if (currentStats.totalFunds < currentTotalCost) {
+      toast({
+        variant: "destructive",
+        title: t('insufficientFundsErrorTitle'),
+        description: t('insufficientFundsErrorDesc', { 
+            name: data.name, 
+            quantity: data.productionQuantity, 
+            totalCost: currentTotalCost.toFixed(2),
+            availableFunds: currentStats.totalFunds.toFixed(2)
+        }),
+      });
+      setIsSubmitting(false);
+      return;
+    }
+    
+    // Deduct funds and add production transaction
+    currentStats.totalFunds -= currentTotalCost;
+    localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
+    window.dispatchEvent(new CustomEvent('gameStatsChanged'));
+
+    const transactionsString = localStorage.getItem(LOCAL_STORAGE_TRANSACTIONS_KEY);
+    let currentTransactions: Transaction[] = transactionsString ? JSON.parse(transactionsString) : [];
+    const productionTransaction: Transaction = {
+      id: `txn_prod_${Date.now()}`,
+      date: new Date().toISOString(),
+      description: t('transactionProductionOf', { quantity: data.productionQuantity, phoneName: data.name }),
+      amount: -currentTotalCost,
+      type: 'expense',
+    };
+    currentTransactions.push(productionTransaction);
+    localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
+    window.dispatchEvent(new CustomEvent('transactionsChanged'));
+
 
     const phoneToSave: PhoneDesign = {
       ...data,
-      id: Date.now().toString(), // Simple unique ID
-      estimatedCost: parseFloat(estimatedCost.toFixed(2)),
+      id: Date.now().toString(), 
+      unitManufacturingCost: currentUnitCost,
+      productionQuantity: data.productionQuantity,
+      currentStock: data.productionQuantity, // Initial stock is full production quantity
       imageUrl: `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
     };
 
-    // Save basic phone design to localStorage
     try {
-      const existingPhonesString = localStorage.getItem('myPhones');
+      const existingPhonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
       const existingPhones: PhoneDesign[] = existingPhonesString ? JSON.parse(existingPhonesString) : [];
       existingPhones.push(phoneToSave);
-      localStorage.setItem('myPhones', JSON.stringify(existingPhones));
+      localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(existingPhones));
       
       toast({
         title: t('phoneDesignSavedTitle'),
-        description: t('phoneDesignSavedDesc', { name: data.name, cost: phoneToSave.estimatedCost.toFixed(2) }),
+        description: t('phoneDesignSavedDesc', { 
+            name: data.name, 
+            quantity: data.productionQuantity,
+            unitCost: currentUnitCost.toFixed(2),
+            totalCost: currentTotalCost.toFixed(2) 
+        }),
       });
 
-      // Generate AI Review
       setIsGeneratingReview(true);
-      const reviewResult = await getPhoneReview(phoneToSave);
+      const reviewInputData = { ...data, unitManufacturingCost: currentUnitCost };
+      const reviewResult = await getPhoneDesignReview(reviewInputData);
       setReviewState(reviewResult);
       setIsGeneratingReview(false);
 
       if (reviewResult.review && !reviewResult.error) {
-        // Update localStorage with the review
-        const phonesAfterReviewString = localStorage.getItem('myPhones');
+        const phonesAfterReviewString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
         let phonesAfterReview: PhoneDesign[] = phonesAfterReviewString ? JSON.parse(phonesAfterReviewString) : [];
         phonesAfterReview = phonesAfterReview.map(p => 
           p.id === phoneToSave.id ? { ...p, review: reviewResult.review?.reviewText } : p
         );
-        localStorage.setItem('myPhones', JSON.stringify(phonesAfterReview));
+        localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(phonesAfterReview));
         toast({
           title: t('aiReviewGeneratedTitle'),
           description: t('aiReviewGeneratedDesc', {name: data.name})
@@ -166,7 +224,7 @@ export default function DesignPhonePage() {
           description: reviewResult.message || t('aiReviewErrorDesc'),
         });
       }
-      reset(defaultValues); // Reset form after successful save and review attempt
+      reset(defaultValues); 
 
     } catch (error) {
       console.error("Error saving phone or generating review:", error);
@@ -181,25 +239,26 @@ export default function DesignPhonePage() {
   };
   
   const formFields = [
-    { name: "name" as keyof PhoneDesignFormData, label: t('phoneNameLabel'), icon: Edit3, componentType: "Input", inputType: "text"},
-    { name: "processor" as keyof PhoneDesignFormData, label: t('processorLabel'), icon: HardDrive, componentType: "Select", options: PROCESSOR_OPTIONS.options },
-    { name: "displayType" as keyof PhoneDesignFormData, label: t('displayTypeLabel'), icon: Smartphone, componentType: "Select", options: DISPLAY_OPTIONS.options },
-    { name: "ram" as keyof PhoneDesignFormData, label: t('ramLabel'), icon: HardDrive, componentType: "Slider", min: 2, max: 32, step: 2, unit: "GB" },
-    { name: "storage" as keyof PhoneDesignFormData, label: t('storageLabel'), icon: HardDrive, componentType: "Slider", min: 32, max: 2048, step: 32, unit: "GB" },
-    { name: "cameraResolution" as keyof PhoneDesignFormData, label: t('cameraResolutionLabel'), icon: Camera, componentType: "Slider", min: 8, max: 200, step: 4, unit: "MP" },
-    { name: "frontCameraResolution" as keyof PhoneDesignFormData, label: t('frontCameraResolutionLabel'), icon: UserCircle, componentType: "Slider", min: 5, max: 100, step: 1, unit: "MP"},
-    { name: "batteryCapacity" as keyof PhoneDesignFormData, label: t('batteryCapacityLabel'), icon: Zap, componentType: "Slider", min: 2000, max: 10000, step: 100, unit: "mAh" },
-    { name: "material" as keyof PhoneDesignFormData, label: t('materialLabel'), icon: Smartphone, componentType: "Select", options: MATERIAL_OPTIONS.options },
-    { name: "color" as keyof PhoneDesignFormData, label: t('colorLabel'), icon: Palette, componentType: "Select", options: COLOR_OPTIONS.map(c => ({...c, cost: 0})) },
-    { name: "screenSize" as keyof PhoneDesignFormData, label: t('screenSizeLabel'), icon: MonitorSmartphone, componentType: "Slider", min: 5.0, max: 7.5, step: 0.1, unit: t('inchesUnit') },
-    { name: "refreshRate" as keyof PhoneDesignFormData, label: t('refreshRateLabel'), icon: RefreshCw, componentType: "Select", options: REFRESH_RATE_OPTIONS.options },
-    { name: "waterResistance" as keyof PhoneDesignFormData, label: t('waterResistanceLabel'), icon: Droplets, componentType: "Select", options: WATER_RESISTANCE_OPTIONS.options },
-    { name: "simSlots" as keyof PhoneDesignFormData, label: t('simSlotsLabel'), icon: GalleryVertical, componentType: "Select", options: SIM_SLOT_OPTIONS.options },
-    { name: "operatingSystem" as keyof PhoneDesignFormData, label: t('osLabel'), icon: Cog, componentType: "Select", options: OPERATING_SYSTEM_OPTIONS.options },
-    { name: "nfcSupport" as keyof PhoneDesignFormData, label: t('nfcSupportLabel'), icon: SmartphoneNfc, componentType: "Switch"},
-    { name: "height" as keyof PhoneDesignFormData, label: t('heightLabel'), icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
-    { name: "width" as keyof PhoneDesignFormData, label: t('widthLabel'), icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
-    { name: "thickness" as keyof PhoneDesignFormData, label: t('thicknessLabel'), icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
+    { name: "name" as keyof PhoneDesignFormData, labelKey: 'phoneNameLabel', icon: Edit3, componentType: "Input", inputType: "text"},
+    { name: "processor" as keyof PhoneDesignFormData, labelKey: 'processorLabel', icon: HardDrive, componentType: "Select", options: PROCESSOR_OPTIONS.options },
+    { name: "displayType" as keyof PhoneDesignFormData, labelKey: 'displayTypeLabel', icon: Smartphone, componentType: "Select", options: DISPLAY_OPTIONS.options },
+    { name: "ram" as keyof PhoneDesignFormData, labelKey: 'ramLabel', icon: HardDrive, componentType: "Slider", min: 2, max: 32, step: 2, unit: "GB" },
+    { name: "storage" as keyof PhoneDesignFormData, labelKey: 'storageLabel', icon: HardDrive, componentType: "Slider", min: 32, max: 2048, step: 32, unit: "GB" },
+    { name: "cameraResolution" as keyof PhoneDesignFormData, labelKey: 'cameraResolutionLabel', icon: Camera, componentType: "Slider", min: 8, max: 200, step: 4, unit: "MP" },
+    { name: "frontCameraResolution" as keyof PhoneDesignFormData, labelKey: 'frontCameraResolutionLabel', icon: UserCircle, componentType: "Slider", min: 5, max: 100, step: 1, unit: "MP"},
+    { name: "batteryCapacity" as keyof PhoneDesignFormData, labelKey: 'batteryCapacityLabel', icon: Zap, componentType: "Slider", min: 2000, max: 10000, step: 100, unit: "mAh" },
+    { name: "material" as keyof PhoneDesignFormData, labelKey: 'materialLabel', icon: Smartphone, componentType: "Select", options: MATERIAL_OPTIONS.options },
+    { name: "color" as keyof PhoneDesignFormData, labelKey: 'colorLabel', icon: Palette, componentType: "Select", options: COLOR_OPTIONS.map(c => ({...c, cost: 0, label: t(c.label) || c.label })) }, // Translate color labels
+    { name: "screenSize" as keyof PhoneDesignFormData, labelKey: 'screenSizeLabel', icon: MonitorSmartphone, componentType: "Slider", min: 5.0, max: 7.5, step: 0.1, unit: t('inchesUnit') },
+    { name: "refreshRate" as keyof PhoneDesignFormData, labelKey: 'refreshRateLabel', icon: RefreshCw, componentType: "Select", options: REFRESH_RATE_OPTIONS.options },
+    { name: "waterResistance" as keyof PhoneDesignFormData, labelKey: 'waterResistanceLabel', icon: Droplets, componentType: "Select", options: WATER_RESISTANCE_OPTIONS.options },
+    { name: "simSlots" as keyof PhoneDesignFormData, labelKey: 'simSlotsLabel', icon: GalleryVertical, componentType: "Select", options: SIM_SLOT_OPTIONS.options },
+    { name: "operatingSystem" as keyof PhoneDesignFormData, labelKey: 'osLabel', icon: Cog, componentType: "Select", options: OPERATING_SYSTEM_OPTIONS.options },
+    { name: "nfcSupport" as keyof PhoneDesignFormData, labelKey: 'nfcSupportLabel', icon: SmartphoneNfc, componentType: "Switch"},
+    { name: "height" as keyof PhoneDesignFormData, labelKey: 'heightLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
+    { name: "width" as keyof PhoneDesignFormData, labelKey: 'widthLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
+    { name: "thickness" as keyof PhoneDesignFormData, labelKey: 'thicknessLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
+    { name: "productionQuantity" as keyof PhoneDesignFormData, labelKey: 'productionQuantityLabel', icon: Package, componentType: "Input", inputType: "number", unit: t('productionQuantityUnit')},
   ];
 
   return (
@@ -215,13 +274,19 @@ export default function DesignPhonePage() {
               <div key={field.name} className="space-y-2">
                 <Label htmlFor={field.name} className="flex items-center">
                   {field.icon && <field.icon className="w-4 h-4 mr-2 text-muted-foreground" />}
-                  {field.label}
-                  {(field.componentType === "Slider" || (field.componentType === "Input" && field.inputType === "number") ) && (
+                  {t(field.labelKey)}
+                  {(field.componentType === "Slider" || (field.componentType === "Input" && field.inputType === "number") ) && field.name !== 'productionQuantity' && (
                     <span className="ml-auto text-sm text-foreground">
                       {watchedValues[field.name as keyof PhoneDesignFormData]}
                       {field.unit ? ` ${field.unit}` : ''}
                     </span>
                   )}
+                   {field.name === 'productionQuantity' && (
+                     <span className="ml-auto text-sm text-foreground">
+                       {getValues(field.name as keyof PhoneDesignFormData)}
+                       {field.unit ? ` ${field.unit}` : ''}
+                     </span>
+                   )}
                 </Label>
                 <Controller
                   name={field.name}
@@ -232,12 +297,12 @@ export default function DesignPhonePage() {
                       return (
                         <Select onValueChange={commonProps.onChange} value={String(commonProps.value)} defaultValue={String(commonProps.value)}>
                           <SelectTrigger>
-                            <SelectValue placeholder={t('selectPlaceholder', {label: field.label.toLowerCase()})} />
+                            <SelectValue placeholder={t('selectPlaceholder', {label: t(field.labelKey).toLowerCase()})} />
                           </SelectTrigger>
                           <SelectContent>
                             {field.options?.map(option => (
                               <SelectItem key={option.value} value={option.value}>
-                                {option.label} {option.cost > 0 ? `(+$${option.cost})` : (option.cost < 0 ? `(-$${Math.abs(option.cost)})` : '')}
+                                {t(option.label) || option.label} {option.cost > 0 ? `(+$${option.cost})` : (option.cost < 0 ? `(-$${Math.abs(option.cost)})` : '')}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -261,8 +326,12 @@ export default function DesignPhonePage() {
                           type={field.inputType}
                           value={String(commonProps.value)}
                           onChange={(e) => {
-                            const val = field.inputType === 'number' ? parseFloat(e.target.value) : e.target.value;
-                            commonProps.onChange(isNaN(val as number) && field.inputType === 'number' ? 0 : val);
+                            let val: string | number = e.target.value;
+                            if (field.inputType === 'number') {
+                                val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                if (isNaN(val as number) && e.target.value !== '') val = 0; // Keep empty if user deletes, else default to 0 for invalid
+                            }
+                            commonProps.onChange(val);
                           }}
                            placeholder={field.name === 'name' ? t('phoneNamePlaceholder') : ''}
                         />
@@ -285,7 +354,7 @@ export default function DesignPhonePage() {
                     return null;
                   }}
                 />
-                {errors[field.name] && <p className="text-sm text-destructive">{errors[field.name]?.message}</p>}
+                {errors[field.name] && <p className="text-sm text-destructive">{t(errors[field.name]?.message || '', {field: t(field.labelKey)})}</p>}
               </div>
             ))}
           </CardContent>
@@ -301,11 +370,20 @@ export default function DesignPhonePage() {
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center"><DollarSign className="w-5 h-5 mr-2 text-primary" />{t('estimatedCostTitle')}</CardTitle>
+            <CardTitle className="flex items-center"><DollarSign className="w-5 h-5 mr-2 text-primary" />{t('unitManufacturingCostTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold text-primary">${estimatedCost.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-primary">${unitManufacturingCost.toFixed(2)}</p>
             <p className="text-sm text-muted-foreground mt-1">{t('estimatedCostDesc')}</p>
+          </CardContent>
+        </Card>
+         <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center"><DollarSign className="w-5 h-5 mr-2 text-primary" />{t('totalProductionCostTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-primary">${totalProductionCost.toFixed(2)}</p>
+             <p className="text-sm text-muted-foreground mt-1">{t('totalProductionCostDesc', { quantity: watchedValues.productionQuantity || 0 })}</p>
           </CardContent>
         </Card>
 

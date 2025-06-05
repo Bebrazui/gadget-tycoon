@@ -10,7 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import type { PhoneDesign } from '@/lib/types'; // Assuming PhoneDesign might be useful for context
+// Removed: import type { PhoneDesign } from '@/lib/types'; // Not directly used in this flow's logic
 
 // Simplified input for the review, focusing on key aspects
 const GeneratePhoneReviewInputSchema = z.object({
@@ -23,7 +23,7 @@ const GeneratePhoneReviewInputSchema = z.object({
   batteryCapacity: z.number().describe('The battery capacity in mAh.'),
   material: z.string().describe('The primary material used for the phone body (e.g., Aluminum, Plastic).'),
   specialFeatures: z.array(z.string()).describe('A list of notable special features (e.g., High Refresh Rate, NFC, Water Resistance).'),
-  estimatedCost: z.number().describe('The estimated manufacturing cost of the phone.'),
+  estimatedCost: z.number().describe('The estimated manufacturing cost of ONE unit of the phone.'), // Clarified this is unit cost
 });
 export type GeneratePhoneReviewInput = z.infer<typeof GeneratePhoneReviewInputSchema>;
 
@@ -54,7 +54,7 @@ Here are its key specifications:
 - Main Camera: {{{cameraResolution}}}MP
 - Battery: {{{batteryCapacity}}}mAh
 - Body Material: {{{material}}}
-- Estimated Cost: \${{{estimatedCost}}}
+- Estimated Unit Manufacturing Cost: \${{{estimatedCost}}}
 {{#if specialFeatures.length}}
 - Special Features:
   {{#each specialFeatures}}
@@ -62,14 +62,14 @@ Here are its key specifications:
   {{/each}}
 {{/if}}
 
-Based on these specs and its estimated cost, write a review.
+Based on these specs and its estimated unit manufacturing cost, write a review.
 Your review should include:
 1.  A short, engaging "reviewText" (3-5 sentences) summarizing the phone.
 2.  A list of "pros".
 3.  A list of "cons".
 4.  An "overallSentiment" (Positive, Neutral, or Negative).
 
-Consider the balance of features against the estimated cost. Be honest but entertaining.
+Consider the balance of features against the estimated unit cost. Be honest but entertaining.
 For example, if it's a budget phone, praise its value if the specs are decent for the price, or point out shortcomings if it's overpriced for what it offers.
 If it's a high-end phone, expectations are higher.
 Keep the reviewText concise and punchy.

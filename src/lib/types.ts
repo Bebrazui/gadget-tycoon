@@ -22,7 +22,7 @@ export interface PhoneComponent {
 }
 
 export interface PhoneDesign {
-  id: string; // Unique identifier for the phone
+  id:string; // Unique identifier for the phone
   name: string; // User-defined name for the phone
   processor: string;
   displayType: string;
@@ -42,8 +42,12 @@ export interface PhoneDesign {
   nfcSupport: boolean;
   operatingSystem: string;
   frontCameraResolution: number; // in MP
-  estimatedCost: number; // Store calculated cost
-  review?: string; // AI-generated review
+  
+  unitManufacturingCost: number; // Cost to produce ONE unit
+  productionQuantity: number; // How many were produced in the initial batch
+  currentStock: number; // How many are left from that batch (produced - sold)
+
+  review?: string; // AI-generated review for the design
   imageUrl?: string; // Placeholder for a generated image if needed
 }
 
@@ -56,7 +60,7 @@ export interface Brand {
 export interface Transaction {
   id: string;
   date: string; // ISO date string or formatted string
-  description: string;
+  description: string; // This can be a translation key
   amount: number; // Positive for income, negative for expense
   type: 'income' | 'expense';
 }
@@ -160,3 +164,8 @@ export const LOCAL_STORAGE_GAME_STATS_KEY = 'gadgetTycoon_gameStats';
 export const LOCAL_STORAGE_TRANSACTIONS_KEY = 'gadgetTycoon_transactions';
 export const LOCAL_STORAGE_MY_PHONES_KEY = 'myPhones'; // Existing key for phones
 export const LOCAL_STORAGE_BRAND_KEY = 'gadgetTycoon_brand';
+
+// Game Balance
+export const SALE_MARKUP_FACTOR = 1.5; // Sell price = unitManufacturingCost * SALE_MARKUP_FACTOR
+export const INITIAL_FUNDS = 50000;
+export const BASE_DESIGN_ASSEMBLY_COST = 50; // Base cost added to each unit

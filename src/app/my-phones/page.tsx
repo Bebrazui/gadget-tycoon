@@ -5,10 +5,13 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw, HandCoins } from 'lucide-react';
+import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw, HandCoins, Package } from 'lucide-react';
 import Image from 'next/image';
 import type { PhoneDesign, Transaction, GameStats } from '@/lib/types';
-import { LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY } from '@/lib/types';
+import { 
+  LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY,
+  SALE_MARKUP_FACTOR, INITIAL_FUNDS
+} from '@/lib/types';
 import { useTranslation } from '@/hooks/useTranslation';
 import { SectionTitle } from '@/components/shared/SectionTitle';
 import {
@@ -36,12 +39,23 @@ export default function MyPhonesPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    loadPhones();
+    setIsLoading(false);
+     // Listen for changes triggered by other pages (like design page saving a new phone)
+    window.addEventListener('myPhonesChanged', loadPhones);
+    return () => {
+      window.removeEventListener('myPhonesChanged', loadPhones);
+    };
+  }, []);
+
+  const loadPhones = () => {
     const phonesFromStorage = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
     if (phonesFromStorage) {
       setSavedPhones(JSON.parse(phonesFromStorage));
+    } else {
+      setSavedPhones([]);
     }
-    setIsLoading(false);
-  }, []);
+  };
 
   const getLabel = (optionsArray: any[] | undefined, value: string): string => {
     const option = optionsArray?.find(opt => opt.value === value);
@@ -58,48 +72,57 @@ export default function MyPhonesPage() {
     });
   };
 
-  const handleSellPhone = (phoneToSell: PhoneDesign) => {
-    // 1. Update Game Stats (Total Funds, Phones Sold)
+  const handleSellUnit = (phoneToSell: PhoneDesign) => {
+    if (phoneToSell.currentStock <= 0) {
+      toast({
+        variant: "destructive",
+        title: t('genericErrorTitle'),
+        description: t('noStockToSell', { name: phoneToSell.name }),
+      });
+      return;
+    }
+
+    // 1. Update Phone Stock
+    const updatedPhones = savedPhones.map(p => 
+      p.id === phoneToSell.id ? { ...p, currentStock: p.currentStock - 1 } : p
+    );
+    setSavedPhones(updatedPhones);
+    localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
+
+    // 2. Update Game Stats (Total Funds, Phones Sold)
     const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
-    let currentStats: GameStats = { totalFunds: 0, phonesSold: 0, brandReputation: 0 };
+    let currentStats: GameStats = { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0 };
     if (statsString) {
       currentStats = JSON.parse(statsString);
     }
-    currentStats.totalFunds += phoneToSell.estimatedCost; // Selling price = estimated cost for now
+    const salePrice = parseFloat((phoneToSell.unitManufacturingCost * SALE_MARKUP_FACTOR).toFixed(2));
+    currentStats.totalFunds += salePrice;
     currentStats.phonesSold += 1;
-    // Optionally update brand reputation slightly for a sale
-    // currentStats.brandReputation += 0.1; 
-
     localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
     window.dispatchEvent(new CustomEvent('gameStatsChanged'));
 
-
-    // 2. Add Transaction
+    // 3. Add Transaction
     const transactionsString = localStorage.getItem(LOCAL_STORAGE_TRANSACTIONS_KEY);
     let currentTransactions: Transaction[] = [];
     if (transactionsString) {
       currentTransactions = JSON.parse(transactionsString);
     }
     const newTransaction: Transaction = {
-      id: `txn_${Date.now()}_${phoneToSell.id}`,
+      id: `txn_sale_${Date.now()}_${phoneToSell.id}`,
       date: new Date().toISOString(),
-      description: `Sale of ${phoneToSell.name}`, // Will be translated on financials page using key
-      amount: phoneToSell.estimatedCost,
+      description: t('transactionSaleOf', { phoneName: phoneToSell.name }),
+      amount: salePrice,
       type: 'income',
     };
     currentTransactions.push(newTransaction);
     localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
     window.dispatchEvent(new CustomEvent('transactionsChanged'));
 
-
-    // 3. Show Toast
+    // 4. Show Toast
     toast({
       title: t('phoneSoldToastTitle'),
-      description: t('phoneSoldToastDesc', { name: phoneToSell.name, price: phoneToSell.estimatedCost.toFixed(2) }),
+      description: t('phoneSoldToastDesc', { name: phoneToSell.name, price: salePrice.toFixed(2) }),
     });
-
-    // Note: The phone is "sold" but remains in "My Phones" as a design.
-    // If we wanted to manage inventory, this would be more complex.
   };
 
 
@@ -156,17 +179,20 @@ export default function MyPhonesPage() {
                     </AlertDialogContent>
                   </AlertDialog>
                 </CardTitle>
-                <CardDescription>{t('estimatedCostLabel')}: ${phone.estimatedCost.toFixed(2)}</CardDescription>
+                <CardDescription>
+                  <span className="block">{t('unitManufacturingCostLabel')}: ${phone.unitManufacturingCost.toFixed(2)}</span>
+                  <span className="block">{t('currentStockLabel')}: {phone.currentStock} / {phone.productionQuantity} ({t('productionQuantityInfoLabel')})</span>
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex-grow space-y-4">
                 <div className="relative aspect-[16/10] w-full bg-muted rounded-md overflow-hidden">
                   {phone.imageUrl && (
                     <Image
                       src={phone.imageUrl}
-                      alt={phone.name || 'Phone image'}
-                      fill // Changed from layout="fill"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Optional: for performance
-                      style={{objectFit: "cover"}} // Changed from objectFit="cover"
+                      alt={phone.name || t('phoneBlueprintAlt')}
+                      fill 
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" 
+                      style={{objectFit: "cover"}} 
                       data-ai-hint="custom phone"
                     />
                   )}
@@ -194,10 +220,16 @@ export default function MyPhonesPage() {
               </CardContent>
                <CardFooter className="grid grid-cols-2 gap-2">
                  <Button variant="outline" className="w-full" asChild>
+                    {/* Link to view/edit design, for now just links to general design page */}
                     <Link href={`/design?edit=${phone.id}`}>{t('editDesignButton')}</Link> 
                  </Button>
-                 <Button variant="default" className="w-full" onClick={() => handleSellPhone(phone)}>
-                    <HandCoins className="inline h-4 w-4 mr-2"/>{t('sellPhoneButton')}
+                 <Button 
+                    variant="default" 
+                    className="w-full" 
+                    onClick={() => handleSellUnit(phone)}
+                    disabled={phone.currentStock <= 0}
+                  >
+                    <HandCoins className="inline h-4 w-4 mr-2"/>{t('sellOneUnitButton')}
                  </Button>
                </CardFooter>
             </Card>
