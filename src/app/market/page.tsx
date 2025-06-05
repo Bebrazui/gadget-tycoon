@@ -1,4 +1,6 @@
 
+"use client";
+
 import { ComingSoon } from "@/components/shared/ComingSoon";
 import { SectionTitle } from "@/components/shared/SectionTitle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
