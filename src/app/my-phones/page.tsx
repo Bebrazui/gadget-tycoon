@@ -5,9 +5,10 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw } from 'lucide-react';
+import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw, HandCoins } from 'lucide-react';
 import Image from 'next/image';
-import type { PhoneDesign } from '@/lib/types';
+import type { PhoneDesign, Transaction, GameStats } from '@/lib/types';
+import { LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY } from '@/lib/types';
 import { useTranslation } from '@/hooks/useTranslation';
 import { SectionTitle } from '@/components/shared/SectionTitle';
 import {
@@ -35,7 +36,7 @@ export default function MyPhonesPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const phonesFromStorage = localStorage.getItem('myPhones');
+    const phonesFromStorage = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
     if (phonesFromStorage) {
       setSavedPhones(JSON.parse(phonesFromStorage));
     }
@@ -43,18 +44,64 @@ export default function MyPhonesPage() {
   }, []);
 
   const getLabel = (optionsArray: any[] | undefined, value: string): string => {
-    return optionsArray?.find(opt => opt.value === value)?.label || value;
+    const option = optionsArray?.find(opt => opt.value === value);
+    return option ? (t(option.label) || option.label) : value;
   };
 
   const handleDeletePhone = (phoneId: string) => {
     const updatedPhones = savedPhones.filter(phone => phone.id !== phoneId);
     setSavedPhones(updatedPhones);
-    localStorage.setItem('myPhones', JSON.stringify(updatedPhones));
+    localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
     toast({
       title: t('phoneDeletedTitle'),
       description: t('phoneDeletedDesc'),
     });
   };
+
+  const handleSellPhone = (phoneToSell: PhoneDesign) => {
+    // 1. Update Game Stats (Total Funds, Phones Sold)
+    const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
+    let currentStats: GameStats = { totalFunds: 0, phonesSold: 0, brandReputation: 0 };
+    if (statsString) {
+      currentStats = JSON.parse(statsString);
+    }
+    currentStats.totalFunds += phoneToSell.estimatedCost; // Selling price = estimated cost for now
+    currentStats.phonesSold += 1;
+    // Optionally update brand reputation slightly for a sale
+    // currentStats.brandReputation += 0.1; 
+
+    localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
+    window.dispatchEvent(new CustomEvent('gameStatsChanged'));
+
+
+    // 2. Add Transaction
+    const transactionsString = localStorage.getItem(LOCAL_STORAGE_TRANSACTIONS_KEY);
+    let currentTransactions: Transaction[] = [];
+    if (transactionsString) {
+      currentTransactions = JSON.parse(transactionsString);
+    }
+    const newTransaction: Transaction = {
+      id: `txn_${Date.now()}_${phoneToSell.id}`,
+      date: new Date().toISOString(),
+      description: `Sale of ${phoneToSell.name}`, // Will be translated on financials page using key
+      amount: phoneToSell.estimatedCost,
+      type: 'income',
+    };
+    currentTransactions.push(newTransaction);
+    localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
+    window.dispatchEvent(new CustomEvent('transactionsChanged'));
+
+
+    // 3. Show Toast
+    toast({
+      title: t('phoneSoldToastTitle'),
+      description: t('phoneSoldToastDesc', { name: phoneToSell.name, price: phoneToSell.estimatedCost.toFixed(2) }),
+    });
+
+    // Note: The phone is "sold" but remains in "My Phones" as a design.
+    // If we wanted to manage inventory, this would be more complex.
+  };
+
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-64"><Sparkles className="w-8 h-8 animate-spin text-primary" /> <span className="ml-2">{t('loadingPhones')}</span></div>;
@@ -117,8 +164,9 @@ export default function MyPhonesPage() {
                     <Image
                       src={phone.imageUrl}
                       alt={phone.name || 'Phone image'}
-                      layout="fill"
-                      objectFit="cover"
+                      fill // Changed from layout="fill"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Optional: for performance
+                      style={{objectFit: "cover"}} // Changed from objectFit="cover"
                       data-ai-hint="custom phone"
                     />
                   )}
@@ -139,15 +187,17 @@ export default function MyPhonesPage() {
                 </div>
                 {phone.review && (
                   <div>
-                    <h4 className="font-semibold flex items-center mb-1"><Bot className="inline h-4 w-4 mr-1 text-primary" /> {t('aiReviewCardTitle')}</h4>
+                    <h4 className="font-semibold flex items-center mb-1"><Bot className="inline h-4 w-4 mr-1 text-primary" /> {t('aiGeneratedReview')}</h4>
                     <p className="text-sm text-muted-foreground italic">"{phone.review}"</p>
                   </div>
                 )}
               </CardContent>
-               <CardFooter>
+               <CardFooter className="grid grid-cols-2 gap-2">
                  <Button variant="outline" className="w-full" asChild>
                     <Link href={`/design?edit=${phone.id}`}>{t('editDesignButton')}</Link> 
-                    {/* Edit functionality would require more logic on design page to load existing data */}
+                 </Button>
+                 <Button variant="default" className="w-full" onClick={() => handleSellPhone(phone)}>
+                    <HandCoins className="inline h-4 w-4 mr-2"/>{t('sellPhoneButton')}
                  </Button>
                </CardFooter>
             </Card>

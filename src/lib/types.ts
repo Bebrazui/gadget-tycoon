@@ -53,6 +53,20 @@ export interface Brand {
   marketingStrategy: string;
 }
 
+export interface Transaction {
+  id: string;
+  date: string; // ISO date string or formatted string
+  description: string;
+  amount: number; // Positive for income, negative for expense
+  type: 'income' | 'expense';
+}
+
+export interface GameStats {
+  totalFunds: number;
+  phonesSold: number;
+  brandReputation: number; // Or a string like "Neutral", "Good", "Bad"
+}
+
 export const PROCESSOR_OPTIONS: PhoneComponent = {
   id: 'processor', name: 'Processor', type: 'processor', options: [
     { value: 'snapdragon_680', label: 'Snapdragon 680', cost: 50 },
@@ -140,3 +154,9 @@ export const OPERATING_SYSTEM_OPTIONS: PhoneComponent = {
     { value: 'harmonyos_like', label: 'HarmonyOS-like (Proprietary)', cost: 15 },
   ]
 };
+
+// localStorage keys
+export const LOCAL_STORAGE_GAME_STATS_KEY = 'gadgetTycoon_gameStats';
+export const LOCAL_STORAGE_TRANSACTIONS_KEY = 'gadgetTycoon_transactions';
+export const LOCAL_STORAGE_MY_PHONES_KEY = 'myPhones'; // Existing key for phones
+export const LOCAL_STORAGE_BRAND_KEY = 'gadgetTycoon_brand';

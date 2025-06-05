@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -13,17 +13,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Award, Lightbulb, Target, Loader2 } from 'lucide-react';
 import type { Brand } from '@/lib/types';
+import { LOCAL_STORAGE_BRAND_KEY } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
 import { useTranslation } from '@/hooks/useTranslation';
 
-const brandSchema = z.object({
-  name: z.string().min(3, "Brand name must be at least 3 characters").max(50, "Brand name must be at most 50 characters"),
-  logoDescription: z.string().min(10, "Logo description must be at least 10 characters").max(200, "Logo description must be at most 200 characters"),
-  marketingStrategy: z.string().min(1, "Marketing strategy is required"),
-});
-
-type BrandFormData = z.infer<typeof brandSchema>;
 
 export default function BrandManagementPage() {
   const { t } = useTranslation();
@@ -32,15 +26,14 @@ export default function BrandManagementPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const marketingStrategies = [
-    { value: "budget_friendly", label: t('marketingStrategy_budget') || "Budget Friendly - Focus on affordability" },
-    { value: "premium_quality", label: t('marketingStrategy_premium') || "Premium Quality - Target high-end market" },
-    { value: "innovation_leader", label: t('marketingStrategy_innovation') || "Innovation Leader - Emphasize new tech" },
-    { value: "influencer_marketing", label: t('marketingStrategy_influencer') || "Influencer Marketing - Leverage social media" },
-    { value: "eco_conscious", label: t('marketingStrategy_eco') || "Eco-Conscious - Highlight sustainability" },
+    { value: "budget_friendly", labelKey: 'marketingStrategy_budget' },
+    { value: "premium_quality", labelKey: 'marketingStrategy_premium' },
+    { value: "innovation_leader", labelKey: 'marketingStrategy_innovation' },
+    { value: "influencer_marketing", labelKey: 'marketingStrategy_influencer' },
+    { value: "eco_conscious", labelKey: 'marketingStrategy_eco' },
   ];
   
-  // Update schema with translated error messages if needed, or keep them simple for now
-  const translatedBrandSchema = z.object({
+  const brandSchema = z.object({
     name: z.string()
       .min(3, t('validation_min3chars', { field: t('brandNameLabel') }))
       .max(50, t('validation_max50chars', { field: t('brandNameLabel') })),
@@ -50,9 +43,10 @@ export default function BrandManagementPage() {
     marketingStrategy: z.string().min(1, t('validation_required', {field: t('marketingStrategyLabel')})),
   });
 
+  type BrandFormData = z.infer<typeof brandSchema>;
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<BrandFormData>({
-    resolver: zodResolver(translatedBrandSchema),
+    resolver: zodResolver(brandSchema), // Re-evaluate if schema needs to be dynamic with `t`
     defaultValues: {
       name: '',
       logoDescription: '',
@@ -60,10 +54,24 @@ export default function BrandManagementPage() {
     },
   });
 
+  useEffect(() => {
+    const storedBrandString = localStorage.getItem(LOCAL_STORAGE_BRAND_KEY);
+    if (storedBrandString) {
+      const storedBrand = JSON.parse(storedBrandString);
+      setCurrentBrand(storedBrand);
+      reset(storedBrand); // Populate form with stored data
+    }
+  }, [reset]);
+
+
   const onSubmit = async (data: BrandFormData) => {
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     setCurrentBrand(data);
+    localStorage.setItem(LOCAL_STORAGE_BRAND_KEY, JSON.stringify(data));
+    
     toast({
       title: t('brandUpdatedTitle'),
       description: t('brandUpdatedDesc', {name: data.name}),
@@ -109,14 +117,14 @@ export default function BrandManagementPage() {
                 name="marketingStrategy"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                     <SelectTrigger id="marketingStrategy">
                       <SelectValue placeholder={t('selectMarketingStrategy')} />
                     </SelectTrigger>
                     <SelectContent>
                       {marketingStrategies.map(strategy => (
                         <SelectItem key={strategy.value} value={strategy.value}>
-                          {strategy.label}
+                          {t(strategy.labelKey)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -150,7 +158,7 @@ export default function BrandManagementPage() {
                   <h3 className="text-lg font-semibold">{currentBrand.name}</h3>
                   <Image 
                     src={`https://placehold.co/300x150.png?text=${encodeURIComponent(currentBrand.name)}`}
-                    alt={`${currentBrand.name} Logo Placeholder`}
+                    alt={`${currentBrand.name} ${t('logoPlaceholderAlt') || 'Logo Placeholder'}`}
                     width={300}
                     height={150}
                     className="rounded-md object-contain my-2 bg-muted"
@@ -163,7 +171,7 @@ export default function BrandManagementPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">{t('marketingStrategyLabel')}:</p>
-                  <p className="text-sm">{marketingStrategies.find(s => s.value === currentBrand.marketingStrategy)?.label || t('notSet')}</p>
+                  <p className="text-sm">{t(marketingStrategies.find(s => s.value === currentBrand.marketingStrategy)?.labelKey || '') || t('notSet')}</p>
                 </div>
               </div>
             ) : (
@@ -188,3 +196,4 @@ export default function BrandManagementPage() {
     </div>
   );
 }
+
