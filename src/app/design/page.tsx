@@ -20,6 +20,12 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import {
   PROCESSOR_OPTIONS, DISPLAY_OPTIONS, MATERIAL_OPTIONS, COLOR_OPTIONS,
   RAM_COST_PER_GB, STORAGE_COST_PER_GB, CAMERA_COST_PER_MP, BATTERY_COST_PER_100MAH,
   REFRESH_RATE_OPTIONS, WATER_RESISTANCE_OPTIONS, SIM_SLOT_OPTIONS, NFC_COST, OIS_COST,
@@ -54,10 +60,9 @@ const phoneDesignSchema = z.object({
   nfcSupport: z.boolean(),
   operatingSystem: z.string().min(1, "validation_required"),
   frontCameraResolution: z.number().min(5).max(100),
-  // New camera fields
   hasOIS: z.boolean(),
-  ultrawideCameraMP: z.number().min(0).max(64), // 0 means no ultrawide
-  telephotoCameraMP: z.number().min(0).max(64), // 0 means no telephoto
+  ultrawideCameraMP: z.number().min(0).max(64), 
+  telephotoCameraMP: z.number().min(0).max(64), 
   telephotoZoom: z.string().min(1, "validation_required"),
   videoResolution: z.string().min(1, "validation_required"),
   productionQuantity: z.number().min(1, "validation_minProduction").max(10000, "validation_maxProduction").positive("validation_positiveNumber"),
@@ -259,33 +264,52 @@ export default function DesignPhonePage() {
     }
   };
   
-  const formFields = [
-    { name: "name" as keyof PhoneDesignFormData, labelKey: 'phoneNameLabel', icon: Edit3, componentType: "Input", inputType: "text"},
-    { name: "processor" as keyof PhoneDesignFormData, labelKey: 'processorLabel', icon: HardDrive, componentType: "Select", options: PROCESSOR_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
-    { name: "displayType" as keyof PhoneDesignFormData, labelKey: 'displayTypeLabel', icon: Smartphone, componentType: "Select", options: DISPLAY_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
-    { name: "ram" as keyof PhoneDesignFormData, labelKey: 'ramLabel', icon: HardDrive, componentType: "Slider", min: 2, max: 32, step: 2, unit: "GB" },
-    { name: "storage" as keyof PhoneDesignFormData, labelKey: 'storageLabel', icon: HardDrive, componentType: "Slider", min: 32, max: 2048, step: 32, unit: "GB" },
-    { name: "cameraResolution" as keyof PhoneDesignFormData, labelKey: 'cameraResolutionLabel', icon: Camera, componentType: "Slider", min: 8, max: 200, step: 4, unit: "MP" },
-    { name: "frontCameraResolution" as keyof PhoneDesignFormData, labelKey: 'frontCameraResolutionLabel', icon: UserCircle, componentType: "Slider", min: 5, max: 100, step: 1, unit: "MP"},
-    { name: "ultrawideCameraMP" as keyof PhoneDesignFormData, labelKey: 'ultrawideCameraMPLabel', icon: Aperture, componentType: "Slider", min: 0, max: 64, step: 2, unit: "MP"},
-    { name: "telephotoCameraMP" as keyof PhoneDesignFormData, labelKey: 'telephotoCameraMPLabel', icon: ZoomIn, componentType: "Slider", min: 0, max: 64, step: 2, unit: "MP"},
-    { name: "telephotoZoom" as keyof PhoneDesignFormData, labelKey: 'telephotoZoomLabel', icon: ZoomIn, componentType: "Select", options: TELEPHOTO_ZOOM_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
-    { name: "videoResolution" as keyof PhoneDesignFormData, labelKey: 'videoResolutionLabel', icon: Video, componentType: "Select", options: VIDEO_RESOLUTION_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
-    { name: "hasOIS" as keyof PhoneDesignFormData, labelKey: 'oisLabel', icon: ImageUp, componentType: "Switch"},
-    { name: "batteryCapacity" as keyof PhoneDesignFormData, labelKey: 'batteryCapacityLabel', icon: Zap, componentType: "Slider", min: 2000, max: 10000, step: 100, unit: "mAh" },
-    { name: "material" as keyof PhoneDesignFormData, labelKey: 'materialLabel', icon: Smartphone, componentType: "Select", options: MATERIAL_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
-    { name: "color" as keyof PhoneDesignFormData, labelKey: 'colorLabel', icon: Palette, componentType: "Select", options: COLOR_OPTIONS.map(c => ({...c, cost: 0, label: t(c.label) || c.label })) }, 
-    { name: "screenSize" as keyof PhoneDesignFormData, labelKey: 'screenSizeLabel', icon: MonitorSmartphone, componentType: "Slider", min: 5.0, max: 7.5, step: 0.1, unit: t('inchesUnit') },
-    { name: "refreshRate" as keyof PhoneDesignFormData, labelKey: 'refreshRateLabel', icon: RefreshCw, componentType: "Select", options: REFRESH_RATE_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
-    { name: "waterResistance" as keyof PhoneDesignFormData, labelKey: 'waterResistanceLabel', icon: Droplets, componentType: "Select", options: WATER_RESISTANCE_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
-    { name: "simSlots" as keyof PhoneDesignFormData, labelKey: 'simSlotsLabel', icon: GalleryVertical, componentType: "Select", options: SIM_SLOT_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
-    { name: "operatingSystem" as keyof PhoneDesignFormData, labelKey: 'osLabel', icon: Cog, componentType: "Select", options: OPERATING_SYSTEM_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
-    { name: "nfcSupport" as keyof PhoneDesignFormData, labelKey: 'nfcSupportLabel', icon: SmartphoneNfc, componentType: "Switch", cost: NFC_COST},
-    { name: "height" as keyof PhoneDesignFormData, labelKey: 'heightLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
-    { name: "width" as keyof PhoneDesignFormData, labelKey: 'widthLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
-    { name: "thickness" as keyof PhoneDesignFormData, labelKey: 'thicknessLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
-    { name: "productionQuantity" as keyof PhoneDesignFormData, labelKey: 'productionQuantityLabel', icon: Package, componentType: "Slider", min: 1, max: 10000, step: 1, unit: t('productionQuantityUnit')},
+  const formFields = {
+    core: [
+      { name: "name" as keyof PhoneDesignFormData, labelKey: 'phoneNameLabel', icon: Edit3, componentType: "Input", inputType: "text"},
+      { name: "processor" as keyof PhoneDesignFormData, labelKey: 'processorLabel', icon: HardDrive, componentType: "Select", options: PROCESSOR_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+      { name: "displayType" as keyof PhoneDesignFormData, labelKey: 'displayTypeLabel', icon: Smartphone, componentType: "Select", options: DISPLAY_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+      { name: "ram" as keyof PhoneDesignFormData, labelKey: 'ramLabel', icon: HardDrive, componentType: "Slider", min: 2, max: 32, step: 2, unit: "GB" },
+      { name: "storage" as keyof PhoneDesignFormData, labelKey: 'storageLabel', icon: HardDrive, componentType: "Slider", min: 32, max: 2048, step: 32, unit: "GB" },
+      { name: "batteryCapacity" as keyof PhoneDesignFormData, labelKey: 'batteryCapacityLabel', icon: Zap, componentType: "Slider", min: 2000, max: 10000, step: 100, unit: "mAh" },
+    ],
+    camera: [
+      { name: "cameraResolution" as keyof PhoneDesignFormData, labelKey: 'cameraResolutionLabel', icon: Camera, componentType: "Slider", min: 8, max: 200, step: 4, unit: "MP" },
+      { name: "frontCameraResolution" as keyof PhoneDesignFormData, labelKey: 'frontCameraResolutionLabel', icon: UserCircle, componentType: "Slider", min: 5, max: 100, step: 1, unit: "MP"},
+      { name: "hasOIS" as keyof PhoneDesignFormData, labelKey: 'oisLabel', icon: ImageUp, componentType: "Switch"},
+      { name: "ultrawideCameraMP" as keyof PhoneDesignFormData, labelKey: 'ultrawideCameraMPLabel', icon: Aperture, componentType: "Slider", min: 0, max: 64, step: 2, unit: "MP"},
+      { name: "telephotoCameraMP" as keyof PhoneDesignFormData, labelKey: 'telephotoCameraMPLabel', icon: ZoomIn, componentType: "Slider", min: 0, max: 64, step: 2, unit: "MP"},
+      { name: "telephotoZoom" as keyof PhoneDesignFormData, labelKey: 'telephotoZoomLabel', icon: ZoomIn, componentType: "Select", options: TELEPHOTO_ZOOM_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+      { name: "videoResolution" as keyof PhoneDesignFormData, labelKey: 'videoResolutionLabel', icon: Video, componentType: "Select", options: VIDEO_RESOLUTION_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+    ],
+    physical: [
+      { name: "material" as keyof PhoneDesignFormData, labelKey: 'materialLabel', icon: Smartphone, componentType: "Select", options: MATERIAL_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+      { name: "color" as keyof PhoneDesignFormData, labelKey: 'colorLabel', icon: Palette, componentType: "Select", options: COLOR_OPTIONS.map(c => ({...c, cost: 0, label: t(c.label) || c.label })) }, 
+      { name: "screenSize" as keyof PhoneDesignFormData, labelKey: 'screenSizeLabel', icon: MonitorSmartphone, componentType: "Slider", min: 5.0, max: 7.5, step: 0.1, unit: t('inchesUnit') },
+      { name: "height" as keyof PhoneDesignFormData, labelKey: 'heightLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
+      { name: "width" as keyof PhoneDesignFormData, labelKey: 'widthLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
+      { name: "thickness" as keyof PhoneDesignFormData, labelKey: 'thicknessLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
+    ],
+    software: [
+      { name: "operatingSystem" as keyof PhoneDesignFormData, labelKey: 'osLabel', icon: Cog, componentType: "Select", options: OPERATING_SYSTEM_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+      { name: "refreshRate" as keyof PhoneDesignFormData, labelKey: 'refreshRateLabel', icon: RefreshCw, componentType: "Select", options: REFRESH_RATE_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+      { name: "waterResistance" as keyof PhoneDesignFormData, labelKey: 'waterResistanceLabel', icon: Droplets, componentType: "Select", options: WATER_RESISTANCE_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+      { name: "simSlots" as keyof PhoneDesignFormData, labelKey: 'simSlotsLabel', icon: GalleryVertical, componentType: "Select", options: SIM_SLOT_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+      { name: "nfcSupport" as keyof PhoneDesignFormData, labelKey: 'nfcSupportLabel', icon: SmartphoneNfc, componentType: "Switch", cost: NFC_COST},
+    ],
+    production: [
+      { name: "productionQuantity" as keyof PhoneDesignFormData, labelKey: 'productionQuantityLabel', icon: Package, componentType: "Slider", min: 1, max: 10000, step: 1, unit: t('productionQuantityUnit')},
+    ]
+  };
+
+  const accordionItems = [
+    { value: "core", titleKey: "accordion_coreComponents", fields: formFields.core },
+    { value: "camera", titleKey: "accordion_cameraSystem", fields: formFields.camera },
+    { value: "physical", titleKey: "accordion_physicalAttributes", fields: formFields.physical },
+    { value: "software", titleKey: "accordion_softwareConnectivity", fields: formFields.software },
+    { value: "production", titleKey: "accordion_production", fields: formFields.production },
   ];
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -295,92 +319,101 @@ export default function DesignPhonePage() {
           <CardDescription>{t('designPhoneDesc')}</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <CardContent className="space-y-6">
-            {formFields.map(field => (
-              <div key={field.name} className="space-y-2">
-                <Label htmlFor={field.name} className="flex items-center">
-                  {field.icon && <field.icon className="w-4 h-4 mr-2 text-muted-foreground" />}
-                  {t(field.labelKey)}
-                  {(field.componentType === "Slider") && (
-                    <span className="ml-auto text-sm text-foreground">
-                      {String(watchedValues[field.name as keyof PhoneDesignFormData])}
-                      {field.unit ? ` ${t(field.unit) || field.unit}` : ''}
-                      { (field.name === 'ultrawideCameraMP' || field.name === 'telephotoCameraMP') && Number(watchedValues[field.name as keyof PhoneDesignFormData]) === 0 ? ` (${t('disabled')})` : ''}
-                    </span>
-                  )}
-                </Label>
-                <Controller
-                  name={field.name}
-                  control={control}
-                  render={({ field: controllerField }) => {
-                    const commonProps = { ...controllerField, id: field.name };
-                    if (field.componentType === "Select") {
-                      return (
-                        <Select onValueChange={commonProps.onChange} value={String(commonProps.value)} defaultValue={String(commonProps.value)}>
-                          <SelectTrigger>
-                            <SelectValue placeholder={t('selectPlaceholder', {label: t(field.labelKey).toLowerCase()})} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {field.options?.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label} {option.cost > 0 ? `(+$${option.cost})` : (option.cost < 0 ? `(-$${Math.abs(option.cost)})` : '')}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      );
-                    }
-                    if (field.componentType === "Slider") {
-                      return (
-                        <Slider
-                          min={field.min}
-                          max={field.max}
-                          step={field.step}
-                          value={[Number(commonProps.value)]}
-                          onValueChange={(value) => commonProps.onChange(value[0])}
-                        />
-                      );
-                    }
-                    if (field.componentType === "Input") {
-                       return (
-                        <Input
-                          type={field.inputType}
-                          value={String(commonProps.value)}
-                          onChange={(e) => {
-                            let val: string | number = e.target.value;
-                            if (field.inputType === 'number') {
-                                val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                                if (isNaN(val as number) && e.target.value !== '') val = 0; 
+          <CardContent className="space-y-1"> {/* Reduced space for accordion */}
+            <Accordion type="multiple" defaultValue={["core", "camera", "physical", "software", "production"]} className="w-full">
+              {accordionItems.map(item => (
+                <AccordionItem value={item.value} key={item.value}>
+                  <AccordionTrigger className="text-lg font-semibold">{t(item.titleKey)}</AccordionTrigger>
+                  <AccordionContent className="pt-4 space-y-6">
+                    {item.fields.map(field => (
+                      <div key={field.name} className="space-y-2">
+                        <Label htmlFor={field.name} className="flex items-center">
+                          {field.icon && <field.icon className="w-4 h-4 mr-2 text-muted-foreground" />}
+                          {t(field.labelKey)}
+                          {(field.componentType === "Slider") && (
+                            <span className="ml-auto text-sm text-foreground">
+                              {String(watchedValues[field.name as keyof PhoneDesignFormData])}
+                              {field.unit ? ` ${t(field.unit) || field.unit}` : ''}
+                              { (field.name === 'ultrawideCameraMP' || field.name === 'telephotoCameraMP') && Number(watchedValues[field.name as keyof PhoneDesignFormData]) === 0 ? ` (${t('disabled')})` : ''}
+                            </span>
+                          )}
+                        </Label>
+                        <Controller
+                          name={field.name as any} // Using any for field.name in Controller as it's already validated
+                          control={control}
+                          render={({ field: controllerField }) => {
+                            const commonProps = { ...controllerField, id: field.name };
+                            if (field.componentType === "Select") {
+                              return (
+                                <Select onValueChange={commonProps.onChange} value={String(commonProps.value)} defaultValue={String(commonProps.value)}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder={t('selectPlaceholder', {label: t(field.labelKey).toLowerCase()})} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {field.options?.map(option => (
+                                      <SelectItem key={option.value} value={option.value}>
+                                        {option.label} {option.cost > 0 ? `(+$${option.cost})` : (option.cost < 0 ? `(-$${Math.abs(option.cost)})` : '')}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              );
                             }
-                            commonProps.onChange(val);
+                            if (field.componentType === "Slider") {
+                              return (
+                                <Slider
+                                  min={field.min}
+                                  max={field.max}
+                                  step={field.step}
+                                  value={[Number(commonProps.value)]}
+                                  onValueChange={(value) => commonProps.onChange(value[0])}
+                                />
+                              );
+                            }
+                            if (field.componentType === "Input") {
+                               return (
+                                <Input
+                                  type={field.inputType}
+                                  value={String(commonProps.value)}
+                                  onChange={(e) => {
+                                    let val: string | number = e.target.value;
+                                    if (field.inputType === 'number') {
+                                        val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                        if (isNaN(val as number) && e.target.value !== '') val = 0; 
+                                    }
+                                    commonProps.onChange(val);
+                                  }}
+                                   placeholder={field.name === 'name' ? t('phoneNamePlaceholder') : ''}
+                                />
+                              );
+                            }
+                            if (field.componentType === "Switch") {
+                              const costText = field.name === 'nfcSupport' ? `(+$${NFC_COST})` : field.name === 'hasOIS' ? `(+$${OIS_COST})` : '';
+                              return (
+                                <div className="flex items-center space-x-2">
+                                  <Switch
+                                    id={field.name}
+                                    checked={Boolean(commonProps.value)}
+                                    onCheckedChange={commonProps.onChange}
+                                  />
+                                  <Label htmlFor={field.name} className="text-sm text-muted-foreground">
+                                    {Boolean(commonProps.value) ? t('enabled') : t('disabled')} {costText}
+                                  </Label>
+                                </div>
+                              );
+                            }
+                            return null;
                           }}
-                           placeholder={field.name === 'name' ? t('phoneNamePlaceholder') : ''}
                         />
-                      );
-                    }
-                    if (field.componentType === "Switch") {
-                      const costText = field.name === 'nfcSupport' ? `(+$${NFC_COST})` : field.name === 'hasOIS' ? `(+$${OIS_COST})` : '';
-                      return (
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            id={field.name}
-                            checked={Boolean(commonProps.value)}
-                            onCheckedChange={commonProps.onChange}
-                          />
-                          <Label htmlFor={field.name} className="text-sm text-muted-foreground">
-                            {Boolean(commonProps.value) ? t('enabled') : t('disabled')} {costText}
-                          </Label>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                {errors[field.name] && <p className="text-sm text-destructive">{t(errors[field.name]?.message || '', {field: t(field.labelKey)})}</p>}
-              </div>
-            ))}
+                        {errors[field.name as keyof PhoneDesignFormData] && <p className="text-sm text-destructive">{t(errors[field.name as keyof PhoneDesignFormData]?.message || '', {field: t(field.labelKey)})}</p>}
+                      </div>
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </CardContent>
-          <CardFooter className="flex justify-end">
+          <CardFooter className="flex justify-end pt-6">
             <Button type="submit" disabled={isSubmitting || isGeneratingReview}>
               {(isSubmitting || isGeneratingReview) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isGeneratingReview ? t('generatingReviewButton') : t('saveDesignButton')}
@@ -392,7 +425,7 @@ export default function DesignPhonePage() {
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center"><DollarSign className="w-5 h-5 mr-2 text-primary" />{t('unitManufacturingCostTitle')}</CardTitle>
+            <CardTitle asChild><h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><DollarSign className="w-5 h-5 mr-2 text-primary" />{t('unitManufacturingCostTitle')}</h3></CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-primary">${unitManufacturingCost.toFixed(2)}</p>
@@ -401,7 +434,7 @@ export default function DesignPhonePage() {
         </Card>
          <Card>
           <CardHeader>
-            <CardTitle className="flex items-center"><DollarSign className="w-5 h-5 mr-2 text-primary" />{t('totalProductionCostTitle')}</CardTitle>
+            <CardTitle asChild><h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><DollarSign className="w-5 h-5 mr-2 text-primary" />{t('totalProductionCostTitle')}</h3></CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-primary">${totalProductionCost.toFixed(2)}</p>
@@ -411,7 +444,7 @@ export default function DesignPhonePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{t('phonePreviewTitle')}</CardTitle>
+            <CardTitle asChild><h3 className="text-2xl font-semibold leading-none tracking-tight">{t('phonePreviewTitle')}</h3></CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
             <div 
@@ -430,7 +463,7 @@ export default function DesignPhonePage() {
                  <p className="text-[0.5rem] leading-tight text-muted-foreground">
                     Main: {watchedValues.cameraResolution}MP {watchedValues.hasOIS ? '(OIS)' : ''}
                     {watchedValues.ultrawideCameraMP > 0 ? `, UW: ${watchedValues.ultrawideCameraMP}MP` : ''}
-                    {watchedValues.telephotoCameraMP > 0 ? `, Tele: ${watchedValues.telephotoCameraMP}MP (${TELEPHOTO_ZOOM_OPTIONS.options?.find(o=>o.value === watchedValues.telephotoZoom)?.label.replace(' Optical Zoom', '') || ''})` : ''}
+                    {watchedValues.telephotoCameraMP > 0 ? `, Tele: ${watchedValues.telephotoCameraMP}MP (${TELEPHOTO_ZOOM_OPTIONS.options?.find(o=>o.value === watchedValues.telephotoZoom)?.label.replace(' Optical Zoom', '').replace(' Оптический зум', '') || ''})` : ''}
                  </p>
                  <p className="text-[0.5rem] leading-tight text-muted-foreground">Front: {watchedValues.frontCameraResolution}MP</p>
                  <p className="text-[0.5rem] leading-tight text-muted-foreground">Video: {VIDEO_RESOLUTION_OPTIONS.options?.find(o=>o.value === watchedValues.videoResolution)?.label}</p>
@@ -450,7 +483,7 @@ export default function DesignPhonePage() {
         {reviewState && (
           <Card>
             <CardHeader>
-              <CardTitle>{t('aiReviewCardTitle')}</CardTitle>
+              <CardTitle asChild><h3 className="text-2xl font-semibold leading-none tracking-tight">{t('aiReviewCardTitle')}</h3></CardTitle>
             </CardHeader>
             <CardContent>
               {reviewState.error && (
@@ -485,7 +518,7 @@ export default function DesignPhonePage() {
           </Card>
         )}
          <Card>
-          <CardHeader><CardTitle className="flex items-center"><Info className="w-5 h-5 mr-2 text-primary"/>{t('designTipsTitle')}</CardTitle></CardHeader>
+          <CardHeader><CardTitle asChild><h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><Info className="w-5 h-5 mr-2 text-primary"/>{t('designTipsTitle')}</h3></CardTitle></CardHeader>
           <CardContent className="text-sm space-y-1 text-muted-foreground">
             <p>{t('designTip1')}</p>
             <p>{t('designTip2')}</p>
