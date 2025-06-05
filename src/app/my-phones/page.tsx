@@ -6,12 +6,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw, HandCoins, Package, TrendingUp, Edit, Video, Aperture, ZoomIn, ImageUp, MonitorSmartphone } from 'lucide-react';
+import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw, HandCoins, Package, TrendingUp, Edit, Video, Aperture, ZoomIn, ImageUp, MonitorSmartphone, Factory } from 'lucide-react';
 import Image from 'next/image';
-import type { PhoneDesign } from '@/lib/types';
+import type { PhoneDesign, GameStats, Transaction } from '@/lib/types';
 import { 
   LOCAL_STORAGE_MY_PHONES_KEY,
-  SALE_MARKUP_FACTOR
+  SALE_MARKUP_FACTOR,
+  LOCAL_STORAGE_GAME_STATS_KEY,
+  LOCAL_STORAGE_TRANSACTIONS_KEY,
+  INITIAL_FUNDS
 } from '@/lib/types';
 import { useTranslation } from '@/hooks/useTranslation';
 import { SectionTitle } from '@/components/shared/SectionTitle';
@@ -42,12 +45,17 @@ interface SalesFormData {
   };
 }
 
+interface ProduceMoreQuantities {
+  [phoneId: string]: string;
+}
+
 export default function MyPhonesPage() {
   const { t, language } = useTranslation(); 
   const { toast } = useToast();
   const [savedPhones, setSavedPhones] = useState<PhoneDesign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [salesFormData, setSalesFormData] = useState<SalesFormData>({});
+  const [produceMoreQuantities, setProduceMoreQuantities] = useState<ProduceMoreQuantities>({});
 
   const loadPhones = useCallback(() => {
     setIsLoading(true);
@@ -60,6 +68,7 @@ export default function MyPhonesPage() {
         setSavedPhones(validPhones);
 
         const initialSalesData: SalesFormData = {};
+        const initialProduceMoreQtys: ProduceMoreQuantities = {};
         validPhones.forEach(phone => {
           const unitCost = phone.unitManufacturingCost || 0;
           const defaultCalculatedPrice = unitCost * SALE_MARKUP_FACTOR;
@@ -69,13 +78,16 @@ export default function MyPhonesPage() {
             price: salePrice.toFixed(2),
             quantityToList: (phone.quantityListedForSale || 0).toString(), 
           };
+          initialProduceMoreQtys[phone.id] = '0'; // Default to 0 for "produce more"
         });
         setSalesFormData(initialSalesData);
+        setProduceMoreQuantities(initialProduceMoreQtys);
       } catch (error) {
         console.error(t('localStorageErrorMyPhonesConsole'), error);
         localStorage.removeItem(LOCAL_STORAGE_MY_PHONES_KEY); 
         setSavedPhones([]);
         setSalesFormData({});
+        setProduceMoreQuantities({});
         toast({
           variant: "destructive",
           title: t('localStorageErrorTitle'),
@@ -85,9 +97,10 @@ export default function MyPhonesPage() {
     } else {
       setSavedPhones([]);
       setSalesFormData({});
+      setProduceMoreQuantities({});
     }
     setIsLoading(false);
-  }, [t, toast, SALE_MARKUP_FACTOR]); 
+  }, [t, toast]); 
 
   useEffect(() => {
     loadPhones();
@@ -125,6 +138,11 @@ export default function MyPhonesPage() {
       delete newData[phoneId];
       return newData;
     });
+    setProduceMoreQuantities(prev => {
+      const newData = {...prev};
+      delete newData[phoneId];
+      return newData;
+    });
     toast({
       title: t('phoneDeletedTitle'),
       description: t('phoneDeletedDesc'),
@@ -139,6 +157,13 @@ export default function MyPhonesPage() {
         ...prev[phoneId],
         [field]: value,
       },
+    }));
+  };
+
+  const handleProduceMoreInputChange = (phoneId: string, value: string) => {
+    setProduceMoreQuantities(prev => ({
+      ...prev,
+      [phoneId]: value,
     }));
   };
 
@@ -161,11 +186,7 @@ export default function MyPhonesPage() {
     
     const alreadyListed = phone.quantityListedForSale || 0;
     const availableUnlistedStock = phone.currentStock || 0;
-
-    // Calculate how many units are being *added* to the market or *removed* from it
-    // This is the number of units to move from currentStock to quantityListedForSale (or vice-versa)
     const changeInListedQuantity = quantityToList - alreadyListed;
-
 
     if (changeInListedQuantity > availableUnlistedStock) {
         toast({
@@ -177,19 +198,17 @@ export default function MyPhonesPage() {
     }
     
     let operationMessage = '';
-
     const updatedPhones = savedPhones.map(p => {
       if (p.id === phoneId) {
         const newStockAfterListing = availableUnlistedStock - changeInListedQuantity;
-
-        if (quantityToList > alreadyListed) { // Listing more or for the first time
+        if (quantityToList > alreadyListed) {
             operationMessage = t('phoneListedSuccessfully', { quantity: changeInListedQuantity, phoneName: p.name, price: newSalePrice.toFixed(2) });
-        } else if (quantityToList < alreadyListed) { // Unlisting some
+        } else if (quantityToList < alreadyListed) {
             operationMessage = t('phoneUnlistedSuccessfully', { quantity: alreadyListed - quantityToList, phoneName: p.name });
-        } else { // Quantity to list is the same as already listed
-             if (p.salePrice !== newSalePrice) { // Only price changed
+        } else {
+             if (p.salePrice !== newSalePrice) {
                 operationMessage = t('priceUpdatedSuccessfully', { phoneName: p.name, price: newSalePrice.toFixed(2) });
-             } else { // No change in quantity or price
+             } else {
                 toast({ title: t('noChangesMade')}); 
                 return p;
              }
@@ -197,18 +216,16 @@ export default function MyPhonesPage() {
         return {
           ...p,
           currentStock: newStockAfterListing,
-          quantityListedForSale: quantityToList, // This is the new total listed
+          quantityListedForSale: quantityToList,
           salePrice: newSalePrice,
         };
       }
       return p;
     });
     
-    if (operationMessage) { // Check if any actual change occurred
+    if (operationMessage) {
         setSavedPhones(updatedPhones);
         localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
-        
-        // Update form data to reflect the committed changes
         setSalesFormData(prev => ({
             ...prev,
             [phoneId]: {
@@ -216,10 +233,79 @@ export default function MyPhonesPage() {
                 quantityToList: quantityToList.toString(),
             }
         }));
-
         toast({ title: operationMessage });
         window.dispatchEvent(new CustomEvent('myPhonesChanged'));
     }
+  };
+
+  const handleProduceMore = (phoneId: string) => {
+    const quantityStr = produceMoreQuantities[phoneId];
+    const quantity = parseInt(quantityStr, 10);
+
+    if (isNaN(quantity) || quantity <= 0) {
+      toast({ variant: "destructive", title: t('genericErrorTitle'), description: t('invalidProductionQuantityToast') });
+      return;
+    }
+
+    const phonesFromStorage = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
+    const currentPhones: PhoneDesign[] = phonesFromStorage ? JSON.parse(phonesFromStorage) : [];
+    const targetPhoneIndex = currentPhones.findIndex(p => p.id === phoneId);
+
+    if (targetPhoneIndex === -1) {
+      toast({ variant: "destructive", title: t('genericErrorTitle'), description: t('phoneNotFoundToast') });
+      return;
+    }
+    const targetPhone = currentPhones[targetPhoneIndex];
+
+    const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
+    let currentStats: GameStats = statsString ? JSON.parse(statsString) : { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0 };
+    
+    const costToProduce = quantity * (targetPhone.unitManufacturingCost || 0);
+
+    if (currentStats.totalFunds < costToProduce) {
+      toast({
+        variant: "destructive",
+        title: t('insufficientFundsErrorTitle'),
+        description: t('insufficientFundsToProduceMoreErrorDesc', { 
+            name: targetPhone.name, 
+            quantity: quantity, 
+            totalCost: costToProduce.toFixed(2),
+            availableFunds: currentStats.totalFunds.toFixed(2)
+        }),
+      });
+      return;
+    }
+
+    currentStats.totalFunds -= costToProduce;
+    currentPhones[targetPhoneIndex].currentStock = (currentPhones[targetPhoneIndex].currentStock || 0) + quantity;
+    
+    const transactionsString = localStorage.getItem(LOCAL_STORAGE_TRANSACTIONS_KEY);
+    let currentTransactions: Transaction[] = transactionsString ? JSON.parse(transactionsString) : [];
+    const productionTransaction: Transaction = {
+      id: `txn_add_prod_${Date.now()}_${targetPhone.id}`,
+      date: new Date().toISOString(),
+      description: `transactionAdditionalProductionOf{{quantity:${quantity},phoneName:${targetPhone.name}}}`,
+      amount: -costToProduce,
+      type: 'expense',
+    };
+    currentTransactions.push(productionTransaction);
+
+    localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(currentPhones));
+    localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
+    localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
+
+    // Update local state to reflect changes
+    setSavedPhones(currentPhones); 
+    setProduceMoreQuantities(prev => ({ ...prev, [phoneId]: '0' })); // Reset input
+
+    window.dispatchEvent(new CustomEvent('myPhonesChanged'));
+    window.dispatchEvent(new CustomEvent('gameStatsChanged'));
+    window.dispatchEvent(new CustomEvent('transactionsChanged'));
+    
+    toast({
+      title: t('productionSuccessfulToastTitle'),
+      description: t('productionSuccessfulToastDesc', { quantity, phoneName: targetPhone.name }),
+    });
   };
   
   if (isLoading) {
@@ -317,7 +403,7 @@ export default function MyPhonesPage() {
                     <p className="text-sm text-muted-foreground italic line-clamp-3">"{phone.review}"</p>
                   </div>
                 )}
-                <Separator className="my-4"/>
+                <Separator className="my-3"/>
                 <div className="space-y-3">
                     <h4 className="font-semibold flex items-center"><TrendingUp className="inline h-4 w-4 mr-1 text-primary"/>{t('salesManagementSectionTitle')}</h4>
                      <p className="text-sm">
@@ -363,8 +449,32 @@ export default function MyPhonesPage() {
                         <HandCoins className="inline h-4 w-4 mr-2"/>{t('updateMarketListingButton')}
                     </Button>
                 </div>
+                <Separator className="my-3"/>
+                <div className="space-y-3">
+                  <h4 className="font-semibold flex items-center"><Factory className="inline h-4 w-4 mr-1 text-primary"/>{t('produceMoreUnitsTitle')}</h4>
+                  <div className="space-y-1">
+                    <Label htmlFor={`produce-qty-${phone.id}`} className="text-xs">{t('additionalUnitsToProduceLabel')}</Label>
+                    <Input
+                      type="number"
+                      id={`produce-qty-${phone.id}`}
+                      value={produceMoreQuantities[phone.id] || '0'}
+                      onChange={(e) => handleProduceMoreInputChange(phone.id, e.target.value)}
+                      className="h-8 text-sm"
+                      min="0"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => handleProduceMore(phone.id)}
+                    disabled={(parseInt(produceMoreQuantities[phone.id] || '0', 10) <= 0)}
+                  >
+                    <Package className="inline h-4 w-4 mr-2"/>{t('produceUnitsButton')}
+                  </Button>
+                </div>
               </CardContent>
-               <CardFooter className="pt-4">
+               <CardFooter className="pt-4 mt-auto"> {/* Added mt-auto here */}
                  <Button variant="outline" className="w-full" asChild>
                     <Link href={`/design?edit=${phone.id}`}>{t('editDesignButton')}</Link> 
                  </Button>
@@ -376,4 +486,3 @@ export default function MyPhonesPage() {
     </div>
   );
 }
-
