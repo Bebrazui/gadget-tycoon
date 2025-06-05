@@ -11,19 +11,24 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Award, Lightbulb, Target, Loader2 } from 'lucide-react';
+import { Award, Lightbulb, Target, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import type { Brand } from '@/lib/types';
 import { LOCAL_STORAGE_BRAND_KEY } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
 import { useTranslation } from '@/hooks/useTranslation';
-
+import { getBrandSlogansAction, type GenerateSlogansFormState } from './actions';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { List, ListItem } from '@/components/ui/list';
 
 export default function BrandManagementPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [currentBrand, setCurrentBrand] = useState<Brand | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingBrand, setIsSavingBrand] = useState(false);
+  const [isGeneratingSlogans, setIsGeneratingSlogans] = useState(false);
+  const [sloganState, setSloganState] = useState<GenerateSlogansFormState | null>(null);
+
 
   const marketingStrategies = [
     { value: "budget_friendly", labelKey: 'marketingStrategy_budget' },
@@ -46,7 +51,7 @@ export default function BrandManagementPage() {
   type BrandFormData = z.infer<typeof brandSchema>;
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<BrandFormData>({
-    resolver: zodResolver(brandSchema), // Re-evaluate if schema needs to be dynamic with `t`
+    resolver: zodResolver(brandSchema),
     defaultValues: {
       name: '',
       logoDescription: '',
@@ -59,15 +64,15 @@ export default function BrandManagementPage() {
     if (storedBrandString) {
       const storedBrand = JSON.parse(storedBrandString);
       setCurrentBrand(storedBrand);
-      reset(storedBrand); // Populate form with stored data
+      reset(storedBrand); 
     }
   }, [reset]);
 
 
-  const onSubmit = async (data: BrandFormData) => {
-    setIsSubmitting(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  const onBrandSubmit = async (data: BrandFormData) => {
+    setIsSavingBrand(true);
+    setSloganState(null); // Clear previous slogans if brand details change
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
     
     setCurrentBrand(data);
     localStorage.setItem(LOCAL_STORAGE_BRAND_KEY, JSON.stringify(data));
@@ -76,7 +81,30 @@ export default function BrandManagementPage() {
       title: t('brandUpdatedTitle'),
       description: t('brandUpdatedDesc', {name: data.name}),
     });
-    setIsSubmitting(false);
+    setIsSavingBrand(false);
+  };
+
+  const handleGenerateSlogans = async () => {
+    if (!currentBrand || !currentBrand.name) {
+      toast({
+        variant: "destructive",
+        title: t('genericErrorTitle'),
+        description: "Please save your brand name and details first.",
+      });
+      return;
+    }
+    setIsGeneratingSlogans(true);
+    setSloganState(null);
+    const result = await getBrandSlogansAction(currentBrand);
+    setSloganState(result);
+    setIsGeneratingSlogans(false);
+    if (result.error) {
+      toast({
+        variant: "destructive",
+        title: t('sloganGenerationErrorTitle'),
+        description: result.message || t('sloganGenerationErrorDesc'),
+      });
+    }
   };
 
   return (
@@ -89,7 +117,7 @@ export default function BrandManagementPage() {
           </CardTitle>
           <CardDescription>{t('brandPageDesc')}</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onBrandSubmit)}>
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="name">{t('brandNameLabel')}</Label>
@@ -134,9 +162,19 @@ export default function BrandManagementPage() {
               {errors.marketingStrategy && <p className="text-sm text-destructive">{errors.marketingStrategy.message}</p>}
             </div>
           </CardContent>
-          <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleGenerateSlogans} 
+              disabled={isGeneratingSlogans || !currentBrand?.name}
+              className="w-full sm:w-auto"
+            >
+              {isGeneratingSlogans ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              {t('generateSlogansButton')}
+            </Button>
+            <Button type="submit" disabled={isSavingBrand} className="w-full sm:w-auto">
+              {isSavingBrand && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('saveBrandButton')}
             </Button>
           </CardFooter>
@@ -152,7 +190,7 @@ export default function BrandManagementPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {currentBrand ? (
+            {currentBrand && currentBrand.name ? (
               <div className="space-y-4">
                 <div>
                   <h3 className="text-lg font-semibold">{currentBrand.name}</h3>
@@ -167,7 +205,7 @@ export default function BrandManagementPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">{t('logoConceptLabel')}:</p>
-                  <p className="text-sm">{currentBrand.logoDescription}</p>
+                  <p className="text-sm">{currentBrand.logoDescription || t('notSet')}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">{t('marketingStrategyLabel')}:</p>
@@ -179,6 +217,38 @@ export default function BrandManagementPage() {
             )}
           </CardContent>
         </Card>
+
+        {sloganState && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Sparkles className="w-5 h-5 mr-2 text-primary" />
+                {t('suggestedSlogansTitle')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isGeneratingSlogans && <p className="text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('generatingSlogansMessage')}</p>}
+              {!isGeneratingSlogans && sloganState.error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>{t('sloganGenerationErrorTitle')}</AlertTitle>
+                  <AlertDescription>{sloganState.message || t('sloganGenerationErrorDesc')}</AlertDescription>
+                </Alert>
+              )}
+              {!isGeneratingSlogans && !sloganState.error && sloganState.slogans && sloganState.slogans.length > 0 && (
+                <List>
+                  {sloganState.slogans.map((slogan, index) => (
+                    <ListItem key={index} className="text-sm italic">"{slogan}"</ListItem>
+                  ))}
+                </List>
+              )}
+              {!isGeneratingSlogans && !sloganState.error && (!sloganState.slogans || sloganState.slogans.length === 0) && (
+                <p className="text-sm text-muted-foreground">{t('noSlogansGenerated')}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
          <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -196,4 +266,3 @@ export default function BrandManagementPage() {
     </div>
   );
 }
-

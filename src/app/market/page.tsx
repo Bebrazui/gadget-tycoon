@@ -5,13 +5,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { SectionTitle } from "@/components/shared/SectionTitle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BarChart as LucideBarChart, LineChart as LucideLineChart, TrendingDown, TrendingUp, Users, AlertCircle } from "lucide-react";
+import { BarChart as LucideBarChart, LineChart as LucideLineChart, TrendingDown, TrendingUp, Users, AlertCircle, Newspaper, Zap, Rss } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, BarChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Legend as RechartsLegend, LineChart } from "recharts";
 import { useTranslation } from "@/hooks/useTranslation";
-import type { Transaction, PhoneDesign } from '@/lib/types';
-import { LOCAL_STORAGE_TRANSACTIONS_KEY, LOCAL_STORAGE_MY_PHONES_KEY } from '@/lib/types';
+import type { Transaction } from '@/lib/types';
+import { LOCAL_STORAGE_TRANSACTIONS_KEY } from '@/lib/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { List, ListItem } from '@/components/ui/list'; // Assuming you have a List component or will create one
+
 
 const competitorData = [
   { id: 1, name: "Apex Phone X", features: "AI Camera, OLED 120Hz", price: 799, sentiment: "Positive" },
@@ -29,6 +31,13 @@ interface PhoneSalesData {
   name: string;
   unitsSold: number;
 }
+
+const marketNewsItems = [
+  { id: 'news1', titleKey: 'marketNews1_title', descriptionKey: 'marketNews1_desc', icon: Zap },
+  { id: 'news2', titleKey: 'marketNews2_title', descriptionKey: 'marketNews2_desc', icon: Newspaper },
+  { id: 'news3', titleKey: 'marketNews3_title', descriptionKey: 'marketNews3_desc', icon: Rss },
+];
+
 
 export default function MarketAnalysisPage() {
   const { t, language } = useTranslation();
@@ -107,7 +116,7 @@ export default function MarketAnalysisPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle asChild><h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><LucideLineChart className="w-5 h-5 mr-2 text-primary" />{t('salesTrendsTitle')}</h3></CardTitle>
+            <CardTitle><h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><LucideLineChart className="w-5 h-5 mr-2 text-primary" />{t('salesTrendsTitle')}</h3></CardTitle>
             <CardDescription>{t('salesTrendsDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -137,7 +146,7 @@ export default function MarketAnalysisPage() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle asChild><h3 className="flex items-center text-xl font-semibold leading-none tracking-tight"><Users className="w-5 h-5 mr-2 text-primary" />{t('consumerSentimentTitle')}</h3></CardTitle>
+                    <CardTitle><h3 className="flex items-center text-xl font-semibold leading-none tracking-tight"><Users className="w-5 h-5 mr-2 text-primary" />{t('consumerSentimentTitle')}</h3></CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     <div className="flex justify-between items-center">
@@ -153,7 +162,7 @@ export default function MarketAnalysisPage() {
             </Card>
              <Card>
                 <CardHeader>
-                    <CardTitle asChild><h3 className="flex items-center text-xl font-semibold leading-none tracking-tight"><LucideBarChart className="w-5 h-5 mr-2 text-primary" />{t('marketSegmentsTitle')}</h3></CardTitle>
+                    <CardTitle><h3 className="flex items-center text-xl font-semibold leading-none tracking-tight"><LucideBarChart className="w-5 h-5 mr-2 text-primary" />{t('marketSegmentsTitle')}</h3></CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
                     <p>{t('segmentBudget')}</p>
@@ -166,7 +175,7 @@ export default function MarketAnalysisPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle asChild><h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><LucideBarChart className="w-5 h-5 mr-2 text-primary" />{t('topSellingPhonesTitle')}</h3></CardTitle>
+          <CardTitle><h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><LucideBarChart className="w-5 h-5 mr-2 text-primary" />{t('topSellingPhonesTitle')}</h3></CardTitle>
           <CardDescription>{t('topSellingPhonesDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -190,10 +199,30 @@ export default function MarketAnalysisPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle><h3 className="text-2xl font-semibold leading-none tracking-tight">{t('marketNewsEventsTitle')}</h3></CardTitle>
+          <CardDescription>{t('marketNewsEventsDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <List>
+            {marketNewsItems.map(item => (
+              <ListItem key={item.id} className="flex items-start gap-4 py-3">
+                <item.icon className="w-5 h-5 mt-1 text-primary flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold">{t(item.titleKey)}</h4>
+                  <p className="text-sm text-muted-foreground">{t(item.descriptionKey)}</p>
+                </div>
+              </ListItem>
+            ))}
+          </List>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader>
-          <CardTitle asChild><h3 className="text-2xl font-semibold leading-none tracking-tight">{t('competitorLandscapeTitle')}</h3></CardTitle>
+          <CardTitle><h3 className="text-2xl font-semibold leading-none tracking-tight">{t('competitorLandscapeTitle')}</h3></CardTitle>
           <CardDescription>{t('competitorLandscapeDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -231,4 +260,3 @@ export default function MarketAnalysisPage() {
     </div>
   );
 }
-

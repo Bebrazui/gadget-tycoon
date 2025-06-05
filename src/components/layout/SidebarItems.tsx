@@ -18,6 +18,7 @@ import {
   Brain,
   Github,
   ListChecks,
+  Briefcase, // Added for Client Contracts
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -30,6 +31,7 @@ export function SidebarItems() {
     { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
     { href: '/design', labelKey: 'designPhone', icon: Smartphone },
     { href: '/my-phones', labelKey: 'myPhones', icon: ListChecks },
+    { href: '/procurement', labelKey: 'clientContracts', icon: Briefcase },
     { href: '/brand', labelKey: 'brand', icon: Award },
     { href: '/market', labelKey: 'marketAnalysis', icon: LineChart },
     { href: '/financials', labelKey: 'financials', icon: Banknote },

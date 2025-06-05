@@ -43,22 +43,21 @@ export interface PhoneDesign {
   operatingSystem: string;
   frontCameraResolution: number; // in MP
 
-  // New Camera Features
-  hasOIS: boolean; // Optical Image Stabilization for main camera
-  ultrawideCameraMP: number; // Resolution in MP for ultrawide
-  telephotoCameraMP: number; // Resolution in MP for telephoto
-  telephotoZoom: string; // e.g., 'none', '2x_optical', '5x_optical'
-  videoResolution: string; // e.g., '1080p30', '4k60', '8k30'
+  hasOIS: boolean; 
+  ultrawideCameraMP: number; 
+  telephotoCameraMP: number; 
+  telephotoZoom: string; 
+  videoResolution: string; 
   
-  unitManufacturingCost: number; // Cost to produce ONE unit
-  productionQuantity: number; // How many were produced in the initial batch
-  currentStock: number; // How many are left from that batch (produced - sold from stock or not listed)
+  unitManufacturingCost: number; 
+  productionQuantity: number; 
+  currentStock: number; 
 
-  review?: string; // AI-generated review for the design
-  imageUrl?: string; // Placeholder for a generated image if needed
+  review?: string; 
+  imageUrl?: string;
 
-  salePrice: number; // Price set by the user for market sale
-  quantityListedForSale: number; // How many units are currently on the market
+  salePrice: number; 
+  quantityListedForSale: number; 
 }
 
 export interface Brand {
@@ -69,17 +68,53 @@ export interface Brand {
 
 export interface Transaction {
   id: string;
-  date: string; // ISO date string or formatted string
-  description: string; // This can be a translation key or a pre-formatted string with placeholders
-  amount: number; // Positive for income, negative for expense
+  date: string; 
+  description: string; 
+  amount: number; 
   type: 'income' | 'expense';
 }
 
 export interface GameStats {
   totalFunds: number;
-  phonesSold: number; // Total phones sold (both direct and market)
-  brandReputation: number; // Or a string like "Neutral", "Good", "Bad"
+  phonesSold: number; 
+  brandReputation: number; 
 }
+
+export interface RequiredSpecs {
+  minRam?: number;
+  maxRam?: number;
+  minStorage?: number;
+  maxStorage?: number;
+  minCameraMP?: number;
+  maxCameraMP?: number;
+  minBattery?: number;
+  maxBattery?: number;
+  specificMaterial?: string; // e.g., "aluminum"
+  specificProcessor?: string; // e.g., "snapdragon_8_gen_2"
+  specificDisplayType?: string;
+  mustHaveNFC?: boolean;
+  mustHaveOIS?: boolean;
+  minScreenSize?: number;
+  maxScreenSize?: number;
+  specificColor?: string; // hex or name
+  maxUnitCost?: number;
+  targetOs?: string; // e.g., "stock_android"
+}
+
+export interface ClientContract {
+  id: string;
+  clientName: string;
+  contractTitle: string;
+  brief: string;
+  requiredSpecs: RequiredSpecs;
+  quantity: number;
+  rewardFlatBonus: number; // Flat bonus upon successful completion
+  penaltyFlat: number; // Flat penalty for failure
+  deadlineDays: number; // In "market days" from acceptance
+  status: 'available' | 'accepted' | 'in_progress' | 'submitted' | 'completed_success' | 'completed_failed_specs' | 'completed_failed_deadline';
+  acceptedDate?: string; // ISO string, set when accepted
+}
+
 
 export const PROCESSOR_OPTIONS: PhoneComponent = {
   id: 'processor', name: 'processorLabel', type: 'processor', options: [
@@ -129,15 +164,14 @@ export const COLOR_OPTIONS = [
   { value: '#800080', label: 'Cosmic Purple' },
 ];
 
-// Cost per GB/MP/mAh/etc.
 export const RAM_COST_PER_GB = 5;
 export const STORAGE_COST_PER_GB = 0.2;
-export const CAMERA_COST_PER_MP = 0.5; // Main camera
+export const CAMERA_COST_PER_MP = 0.5; 
 export const FRONT_CAMERA_COST_PER_MP = 0.6;
 export const ULTRAWIDE_COST_PER_MP = 0.4;
 export const TELEPHOTO_COST_PER_MP = 0.7;
 export const BATTERY_COST_PER_100MAH = 1;
-export const SCREEN_SIZE_COST_FACTOR = 15; // Cost multiplier for (size - baseSize)
+export const SCREEN_SIZE_COST_FACTOR = 15; 
 
 export const REFRESH_RATE_OPTIONS: PhoneComponent = {
   id: 'refreshRate', name: 'refreshRateLabel', type: 'refreshRate', options: [
@@ -166,8 +200,8 @@ export const SIM_SLOT_OPTIONS: PhoneComponent = {
   ]
 };
 
-export const NFC_COST = 5; // Cost if NFC is enabled
-export const OIS_COST = 15; // Cost if OIS is enabled
+export const NFC_COST = 5; 
+export const OIS_COST = 15; 
 
 export const OPERATING_SYSTEM_OPTIONS: PhoneComponent = {
   id: 'operatingSystem', name: 'osLabel', type: 'operatingSystem', options: [
@@ -198,18 +232,16 @@ export const VIDEO_RESOLUTION_OPTIONS: PhoneComponent = {
     ]
 };
 
-
-// localStorage keys
 export const LOCAL_STORAGE_GAME_STATS_KEY = 'gadgetTycoon_gameStats';
 export const LOCAL_STORAGE_TRANSACTIONS_KEY = 'gadgetTycoon_transactions';
-export const LOCAL_STORAGE_MY_PHONES_KEY = 'myPhones'; // Existing key for phones
+export const LOCAL_STORAGE_MY_PHONES_KEY = 'myPhones';
 export const LOCAL_STORAGE_BRAND_KEY = 'gadgetTycoon_brand';
+export const LOCAL_STORAGE_AVAILABLE_CONTRACTS_KEY = 'gadgetTycoon_availableContracts';
+export const LOCAL_STORAGE_ACCEPTED_CONTRACTS_KEY = 'gadgetTycoon_acceptedContracts';
 
-// Game Balance
-export const SALE_MARKUP_FACTOR = 1.5; // Default markup for initial salePrice = unitManufacturingCost * SALE_MARKUP_FACTOR
-export const INITIAL_FUNDS = 10000; // Reduced initial funds
-export const BASE_DESIGN_ASSEMBLY_COST = 20; // Base cost added to each unit
-export const MARKET_SALE_CHANCE = 0.25; // 25% chance to sell a listed unit per market day simulation per unit
-export const MARKET_MAX_SALES_PER_PHONE_PER_DAY = 5; // Max units of a single phone model that can be sold in one market day
-
-    
+export const SALE_MARKUP_FACTOR = 1.5; 
+export const INITIAL_FUNDS = 5000; 
+export const BASE_DESIGN_ASSEMBLY_COST = 15; 
+export const MARKET_SALE_CHANCE = 0.15; 
+export const MARKET_MAX_SALES_PER_PHONE_PER_DAY = 3;
+export const MAX_AVAILABLE_CONTRACTS = 3;
