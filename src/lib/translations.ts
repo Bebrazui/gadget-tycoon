@@ -58,6 +58,9 @@ const translations: Translations = {
     phoneBlueprintAlt: "Phone Blueprint",
     loadingFunds: "Loading...",
     loadingSold: "Loading...",
+    xpGainedNotification: "+{{amount}} XP Gained!",
+    levelUpNotificationTitle: "Level Up!",
+    levelUpNotificationDesc: "Congratulations! You've reached Level {{level}}.",
     // Design Page
     designPhoneTitle: "Design & Produce Your Next Phone",
     designPhoneDesc: "Select components, name your creation, set production quantity, and customize its appearance.",
@@ -418,6 +421,9 @@ const translations: Translations = {
     phoneBlueprintAlt: "Чертеж телефона",
     loadingFunds: "Загрузка...",
     loadingSold: "Загрузка...",
+    xpGainedNotification: "Получено +{{amount}} XP!",
+    levelUpNotificationTitle: "Новый уровень!",
+    levelUpNotificationDesc: "Поздравляем! Вы достигли {{level}} уровня.",
     // Design Page
     designPhoneTitle: "Создайте и произведите свой следующий телефон",
     designPhoneDesc: "Выберите компоненты, назовите свое творение, укажите объем производства и настройте внешний вид.",
@@ -727,3 +733,5 @@ const translations: Translations = {
 };
 
 export default translations;
+
+    

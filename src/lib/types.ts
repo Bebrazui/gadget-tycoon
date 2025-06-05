@@ -78,6 +78,8 @@ export interface GameStats {
   totalFunds: number;
   phonesSold: number; 
   brandReputation: number; 
+  level: number;
+  xp: number;
 }
 
 export interface RequiredSpecs {
@@ -242,8 +244,8 @@ export const LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY = 'gadgetTycoon_lastMarket
 
 
 export const SALE_MARKUP_FACTOR = 1.5; 
-export const INITIAL_FUNDS = 5000; 
-export const BASE_DESIGN_ASSEMBLY_COST = 15; 
+export const INITIAL_FUNDS = 2000; // Reduced for balance
+export const BASE_DESIGN_ASSEMBLY_COST = 10; // Reduced for balance
 
 // Market Simulation Parameters
 export const MARKET_SIMULATION_INTERVAL = 60000; // 60 seconds
@@ -253,3 +255,15 @@ export const MARKET_CATCH_UP_THRESHOLD_MINUTES = 5; // If offline for more than 
 export const MARKET_MAX_CATCH_UP_INTERVALS = 10; // Simulate max 10 intervals for catch-up
 
 export const MAX_AVAILABLE_CONTRACTS = 3;
+
+// Leveling System
+export const XP_FOR_DESIGNING_PHONE = 50;
+export const XP_PER_PHONE_SOLD = 2;
+
+export function calculateXpToNextLevel(level: number): number {
+  // Example: 100, 200, 300, 400, 500...
+  // More complex: Math.floor(100 * Math.pow(level, 1.5));
+  return level * 100;
+}
+
+    

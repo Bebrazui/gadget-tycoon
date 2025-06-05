@@ -16,7 +16,8 @@ import {
     LOCAL_STORAGE_TRANSACTIONS_KEY, MARKET_SIMULATION_INTERVAL,
     MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL, MARKET_SALE_CHANCE_PER_UNIT,
     LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, MARKET_CATCH_UP_THRESHOLD_MINUTES,
-    MARKET_MAX_CATCH_UP_INTERVALS
+    MARKET_MAX_CATCH_UP_INTERVALS,
+    XP_PER_PHONE_SOLD, calculateXpToNextLevel
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -25,6 +26,8 @@ const defaultGameStats: GameStats = {
   totalFunds: INITIAL_FUNDS,
   phonesSold: 0,
   brandReputation: 0, 
+  level: 1,
+  xp: 0,
 };
 
 interface DisplayStats {
@@ -43,12 +46,16 @@ export default function DashboardPage() {
     let totalPhonesSoldThisCycle = 0;
     let totalRevenueThisCycle = 0;
     let salesNotificationsForCycle: string[] = [];
+    let xpGainedThisCycle = 0;
 
     let currentPhonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
     let currentPhones: PhoneDesign[] = currentPhonesString ? JSON.parse(currentPhonesString) : [];
     
     let currentStatsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
-    let currentStats: GameStats = currentStatsString ? JSON.parse(currentStatsString) : { ...defaultGameStats };
+    let currentStats: GameStats = currentStatsString ? JSON.parse(JSON.parse(currentStatsString)) : { ...defaultGameStats };
+    if (currentStats.level === undefined) currentStats.level = 1;
+    if (currentStats.xp === undefined) currentStats.xp = 0;
+
 
     let currentTransactionsString = localStorage.getItem(LOCAL_STORAGE_TRANSACTIONS_KEY);
     let currentTransactions: Transaction[] = currentTransactionsString ? JSON.parse(currentTransactionsString) : [];
@@ -75,6 +82,7 @@ export default function DashboardPage() {
             
             totalRevenueThisCycle += revenueFromThisPhone;
             totalPhonesSoldThisCycle += salesForThisPhoneInInterval;
+            xpGainedThisCycle += XP_PER_PHONE_SOLD * salesForThisPhoneInInterval;
             salesInThisInterval = true;
             phonesModifiedInLoop = true;
 
@@ -97,14 +105,27 @@ export default function DashboardPage() {
         }
         return phone;
       });
+    }
 
-      if (!isCatchUp && !salesInThisInterval && currentPhones.some(p => p.quantityListedForSale > 0)) {
-         // Optional: Notify if no sales despite items listed (can be noisy)
-         // console.log(t('marketDayNoSales'));
+    if (xpGainedThisCycle > 0) {
+      currentStats.xp += xpGainedThisCycle;
+      toast({
+        title: t('xpGainedNotification', { amount: xpGainedThisCycle }),
+      });
+
+      let xpToNext = calculateXpToNextLevel(currentStats.level);
+      while (currentStats.xp >= xpToNext) {
+        currentStats.level++;
+        currentStats.xp -= xpToNext;
+        xpToNext = calculateXpToNextLevel(currentStats.level);
+        toast({
+          title: t('levelUpNotificationTitle'),
+          description: t('levelUpNotificationDesc', { level: currentStats.level }),
+        });
       }
     }
 
-    if (phonesModifiedInLoop) {
+    if (phonesModifiedInLoop || xpGainedThisCycle > 0) {
       localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(currentPhones));
       localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
       localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
@@ -127,10 +148,13 @@ export default function DashboardPage() {
     });
 
     if (!isCatchUp && totalPhonesSoldThisCycle === 0 && currentPhones.every(p => p.quantityListedForSale === 0) && currentPhones.length > 0) {
-      toast({
-          title: t('marketDaySummaryTitle'),
-          description: t('marketDayNoPhonesListed'),
-      });
+      // Only show "no phones listed" if not a catch-up and some phones exist but none are listed
+       if (currentPhones.length > 0 && currentPhones.every(p => p.quantityListedForSale === 0)) {
+        toast({
+            title: t('marketDaySummaryTitle'),
+            description: t('marketDayNoPhonesListed'),
+        });
+      }
     }
     localStorage.setItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, Date.now().toString());
   }, [t, language, toast]);
@@ -144,7 +168,10 @@ export default function DashboardPage() {
         try {
           const parsedStats = JSON.parse(storedStatsString) as GameStats;
           if (typeof parsedStats.totalFunds === 'number' && typeof parsedStats.phonesSold === 'number') {
-              currentStats = parsedStats;
+              currentStats = {
+                ...defaultGameStats, // ensure all fields from default are present
+                ...parsedStats,     // then override with stored values
+              };
           } else { 
               localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(defaultGameStats));
           }
@@ -155,6 +182,10 @@ export default function DashboardPage() {
       } else {
         localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(defaultGameStats));
       }
+      // Ensure level and xp are initialized
+      if (currentStats.level === undefined) currentStats.level = 1;
+      if (currentStats.xp === undefined) currentStats.xp = 0;
+
       setGameStats(currentStats);
       setDisplayStats({
         totalFunds: `$${currentStats.totalFunds.toLocaleString(language)}`,
@@ -301,3 +332,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

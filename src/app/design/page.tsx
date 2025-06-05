@@ -33,7 +33,8 @@ import {
   ULTRAWIDE_COST_PER_MP, TELEPHOTO_COST_PER_MP, TELEPHOTO_ZOOM_OPTIONS, VIDEO_RESOLUTION_OPTIONS,
   type PhoneDesign, type PhoneComponentOption, type GameStats, type Transaction,
   LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY,
-  INITIAL_FUNDS, BASE_DESIGN_ASSEMBLY_COST, SALE_MARKUP_FACTOR
+  INITIAL_FUNDS, BASE_DESIGN_ASSEMBLY_COST, SALE_MARKUP_FACTOR,
+  XP_FOR_DESIGNING_PHONE, calculateXpToNextLevel
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/hooks/useTranslation';
@@ -160,10 +161,13 @@ export default function DesignPhonePage() {
     const currentTotalCost = parseFloat(totalProductionCost.toFixed(2));
     
     const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
-    let currentStats: GameStats = { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0 };
-    if (statsString) {
-      currentStats = JSON.parse(statsString);
-    }
+    let currentStats: GameStats = statsString 
+      ? JSON.parse(statsString) 
+      : { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0, level: 1, xp: 0 };
+    
+    if (currentStats.level === undefined) currentStats.level = 1;
+    if (currentStats.xp === undefined) currentStats.xp = 0;
+
 
     if (currentStats.totalFunds < currentTotalCost) {
       toast({
@@ -181,6 +185,25 @@ export default function DesignPhonePage() {
     }
     
     currentStats.totalFunds -= currentTotalCost;
+    
+    // Add XP for designing a new phone
+    const xpFromDesign = XP_FOR_DESIGNING_PHONE;
+    currentStats.xp += xpFromDesign;
+    toast({
+      title: t('xpGainedNotification', { amount: xpFromDesign }),
+    });
+
+    let xpToNext = calculateXpToNextLevel(currentStats.level);
+    while (currentStats.xp >= xpToNext) {
+      currentStats.level++;
+      currentStats.xp -= xpToNext;
+      xpToNext = calculateXpToNextLevel(currentStats.level);
+      toast({
+        title: t('levelUpNotificationTitle'),
+        description: t('levelUpNotificationDesc', { level: currentStats.level }),
+      });
+    }
+
     localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
     window.dispatchEvent(new CustomEvent('gameStatsChanged'));
 
@@ -425,7 +448,7 @@ export default function DesignPhonePage() {
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle asChild><h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><DollarSign className="w-5 h-5 mr-2 text-primary" />{t('unitManufacturingCostTitle')}</h3></CardTitle>
+            <h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><DollarSign className="w-5 h-5 mr-2 text-primary" />{t('unitManufacturingCostTitle')}</h3>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-primary">${unitManufacturingCost.toFixed(2)}</p>
@@ -434,7 +457,7 @@ export default function DesignPhonePage() {
         </Card>
          <Card>
           <CardHeader>
-            <CardTitle asChild><h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><DollarSign className="w-5 h-5 mr-2 text-primary" />{t('totalProductionCostTitle')}</h3></CardTitle>
+            <h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><DollarSign className="w-5 h-5 mr-2 text-primary" />{t('totalProductionCostTitle')}</h3>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-primary">${totalProductionCost.toFixed(2)}</p>
@@ -444,7 +467,7 @@ export default function DesignPhonePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle asChild><h3 className="text-2xl font-semibold leading-none tracking-tight">{t('phonePreviewTitle')}</h3></CardTitle>
+            <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('phonePreviewTitle')}</h3>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
             <div 
@@ -483,7 +506,7 @@ export default function DesignPhonePage() {
         {reviewState && (
           <Card>
             <CardHeader>
-              <CardTitle asChild><h3 className="text-2xl font-semibold leading-none tracking-tight">{t('aiReviewCardTitle')}</h3></CardTitle>
+              <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('aiReviewCardTitle')}</h3>
             </CardHeader>
             <CardContent>
               {reviewState.error && (
@@ -518,7 +541,7 @@ export default function DesignPhonePage() {
           </Card>
         )}
          <Card>
-          <CardHeader><CardTitle asChild><h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><Info className="w-5 h-5 mr-2 text-primary"/>{t('designTipsTitle')}</h3></CardTitle></CardHeader>
+          <CardHeader><h3 className="flex items-center text-2xl font-semibold leading-none tracking-tight"><Info className="w-5 h-5 mr-2 text-primary"/>{t('designTipsTitle')}</h3></CardHeader>
           <CardContent className="text-sm space-y-1 text-muted-foreground">
             <p>{t('designTip1')}</p>
             <p>{t('designTip2')}</p>
