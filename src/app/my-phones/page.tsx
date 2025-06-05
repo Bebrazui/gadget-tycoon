@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw, HandCoins, Package, TrendingUp, Edit, Video, Aperture, ZoomIn, ImageUp } from 'lucide-react';
+import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw, HandCoins, Package, TrendingUp, Edit, Video, Aperture, ZoomIn, ImageUp, MonitorSmartphone } from 'lucide-react';
 import Image from 'next/image';
 import type { PhoneDesign } from '@/lib/types';
 import { 
@@ -43,7 +43,7 @@ interface SalesFormData {
 }
 
 export default function MyPhonesPage() {
-  const { t, language } = useTranslation(); // Added language
+  const { t, language } = useTranslation(); 
   const { toast } = useToast();
   const [savedPhones, setSavedPhones] = useState<PhoneDesign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,8 +72,8 @@ export default function MyPhonesPage() {
         });
         setSalesFormData(initialSalesData);
       } catch (error) {
-        console.error("Ошибка загрузки телефонов из localStorage:", error);
-        localStorage.removeItem(LOCAL_STORAGE_MY_PHONES_KEY); // Clear corrupted data
+        console.error(t('localStorageErrorMyPhonesConsole'), error);
+        localStorage.removeItem(LOCAL_STORAGE_MY_PHONES_KEY); 
         setSavedPhones([]);
         setSalesFormData({});
         toast({
@@ -98,19 +98,22 @@ export default function MyPhonesPage() {
         }
     };
     window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('myPhonesChanged', loadPhones);
+    // Custom event listener
+    const handleMyPhonesUpdate = () => {
+      loadPhones();
+    };
+    window.addEventListener('myPhonesChanged', handleMyPhonesUpdate);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('myPhonesChanged', loadPhones);
+      window.removeEventListener('myPhonesChanged', handleMyPhonesUpdate);
     };
   }, [loadPhones]);
 
   const getLabel = (optionsArray: any[] | undefined, value: string): string => {
     if (!optionsArray || !value) return value || t('notSet');
     const option = optionsArray.find(opt => opt.value === value);
-    // Check if option.label itself is a translation key or direct text
-    return option ? (translations[language as keyof typeof translations][option.label] || option.label) : value;
+    return option ? t(option.label) : (value || t('notSet'));
   };
 
   const handleDeletePhone = (phoneId: string) => {
@@ -157,15 +160,18 @@ export default function MyPhonesPage() {
     }
     
     const alreadyListed = phone.quantityListedForSale || 0;
-    // Change in stock required: positive if listing more, negative if unlisting
-    const stockChange = quantityToList - alreadyListed; 
     const availableUnlistedStock = phone.currentStock || 0;
 
-    if (stockChange > availableUnlistedStock) {
+    // Calculate how many units are being *added* to the market or *removed* from it
+    // This is the number of units to move from currentStock to quantityListedForSale (or vice-versa)
+    const changeInListedQuantity = quantityToList - alreadyListed;
+
+
+    if (changeInListedQuantity > availableUnlistedStock) {
         toast({
             variant: "destructive",
             title: t('genericErrorTitle'),
-            description: t('notEnoughStockToList', { quantity: stockChange, availableStock: availableUnlistedStock }),
+            description: t('notEnoughStockToList', { quantity: changeInListedQuantity, availableStock: availableUnlistedStock }),
         });
         return;
     }
@@ -174,34 +180,35 @@ export default function MyPhonesPage() {
 
     const updatedPhones = savedPhones.map(p => {
       if (p.id === phoneId) {
-        const newListedQuantity = quantityToList;
-        const newStock = availableUnlistedStock - stockChange;
+        const newStockAfterListing = availableUnlistedStock - changeInListedQuantity;
 
-        if (newListedQuantity > alreadyListed) {
-            operationMessage = t('phoneListedSuccessfully', { quantity: newListedQuantity - alreadyListed, phoneName: p.name, price: newSalePrice.toFixed(2) });
-        } else if (newListedQuantity < alreadyListed) {
-            operationMessage = t('phoneUnlistedSuccessfully', { quantity: alreadyListed - newListedQuantity, phoneName: p.name });
-        } else {
-             if (p.salePrice !== newSalePrice) {
+        if (quantityToList > alreadyListed) { // Listing more or for the first time
+            operationMessage = t('phoneListedSuccessfully', { quantity: changeInListedQuantity, phoneName: p.name, price: newSalePrice.toFixed(2) });
+        } else if (quantityToList < alreadyListed) { // Unlisting some
+            operationMessage = t('phoneUnlistedSuccessfully', { quantity: alreadyListed - quantityToList, phoneName: p.name });
+        } else { // Quantity to list is the same as already listed
+             if (p.salePrice !== newSalePrice) { // Only price changed
                 operationMessage = t('priceUpdatedSuccessfully', { phoneName: p.name, price: newSalePrice.toFixed(2) });
-             } else {
-                toast({ title: t('noChangesMade')}); return p;
+             } else { // No change in quantity or price
+                toast({ title: t('noChangesMade')}); 
+                return p;
              }
         }
         return {
           ...p,
-          currentStock: newStock,
-          quantityListedForSale: newListedQuantity,
+          currentStock: newStockAfterListing,
+          quantityListedForSale: quantityToList, // This is the new total listed
           salePrice: newSalePrice,
         };
       }
       return p;
     });
     
-    if (JSON.stringify(updatedPhones) !== JSON.stringify(savedPhones)) {
+    if (operationMessage) { // Check if any actual change occurred
         setSavedPhones(updatedPhones);
         localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
         
+        // Update form data to reflect the committed changes
         setSalesFormData(prev => ({
             ...prev,
             [phoneId]: {
@@ -210,9 +217,7 @@ export default function MyPhonesPage() {
             }
         }));
 
-        if(operationMessage) {
-            toast({ title: operationMessage });
-        }
+        toast({ title: operationMessage });
         window.dispatchEvent(new CustomEvent('myPhonesChanged'));
     }
   };
@@ -372,4 +377,3 @@ export default function MyPhonesPage() {
   );
 }
 
-    
