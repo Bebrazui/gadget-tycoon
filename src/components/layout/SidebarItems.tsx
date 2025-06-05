@@ -19,18 +19,20 @@ import {
   Github,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/design', label: 'Design Phone', icon: Smartphone },
-  { href: '/brand', label: 'Brand', icon: Award },
-  { href: '/market', label: 'Market Analysis', icon: LineChart },
-  { href: '/financials', label: 'Financials', icon: Banknote },
-  { href: '/trends', label: 'Trend Forecasting', icon: Brain },
-];
+import { useTranslation } from '@/hooks/useTranslation';
 
 export function SidebarItems() {
   const pathname = usePathname();
+  const { t } = useTranslation();
+
+  const navItems = [
+    { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
+    { href: '/design', labelKey: 'designPhone', icon: Smartphone },
+    { href: '/brand', labelKey: 'brand', icon: Award },
+    { href: '/market', labelKey: 'marketAnalysis', icon: LineChart },
+    { href: '/financials', labelKey: 'financials', icon: Banknote },
+    { href: '/trends', labelKey: 'trendForecasting', icon: Brain },
+  ];
 
   return (
     <>
@@ -51,11 +53,11 @@ export function SidebarItems() {
             <SidebarMenuButton
               asChild
               isActive={pathname === item.href}
-              tooltip={{ children: item.label, side: 'right', className: "bg-card text-card-foreground" }}
+              tooltip={{ children: t(item.labelKey), side: 'right', className: "bg-card text-card-foreground" }}
             >
               <Link href={item.href}>
                 <item.icon />
-                <span>{item.label}</span>
+                <span>{t(item.labelKey)}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -65,7 +67,7 @@ export function SidebarItems() {
          <Button variant="outline" className="w-full" asChild>
             <a href="https://github.com/FirebaseExtended/genkit/tree/main/examples/next-shadcn-firebase" target="_blank" rel="noopener noreferrer">
               <Github className="mr-2 h-4 w-4" />
-              View on GitHub
+              {t('viewOnGithub')}
             </a>
           </Button>
       </div>

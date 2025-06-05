@@ -5,13 +5,20 @@ export interface Trend {
   hotOrNot: string;
 }
 
+export interface PhoneComponentOption {
+  value: string;
+  label: string;
+  cost: number;
+}
+
 export interface PhoneComponent {
   id: string;
   name: string;
-  type: 'processor' | 'display' | 'ram' | 'storage' | 'camera' | 'battery' | 'material';
-  options?: { value: string; label: string; cost: number }[]; // For discrete choices
+  type: 'processor' | 'display' | 'ram' | 'storage' | 'camera' | 'battery' | 'material' | 'screenSize' | 'refreshRate' | 'waterResistance' | 'simSlots' | 'nfc' | 'operatingSystem' | 'frontCamera';
+  options?: PhoneComponentOption[]; // For discrete choices
   range?: { min: number; max: number; step: number; unit: string }; // For continuous values
   costPerUnit?: number; // For RAM, Storage, Battery capacity
+  baseCost?: number; // For boolean features like NFC
 }
 
 export interface PhoneDesign {
@@ -26,6 +33,14 @@ export interface PhoneDesign {
   height: number; // in mm
   width: number; // in mm
   thickness: number; // in mm
+  // New characteristics
+  screenSize: number; // in inches
+  refreshRate: string;
+  waterResistance: string;
+  simSlots: string;
+  nfcSupport: boolean;
+  operatingSystem: string;
+  frontCameraResolution: number; // in MP
 }
 
 export interface Brand {
@@ -39,7 +54,9 @@ export const PROCESSOR_OPTIONS: PhoneComponent = {
     { value: 'snapdragon_680', label: 'Snapdragon 680', cost: 50 },
     { value: 'helio_g99', label: 'Helio G99', cost: 45 },
     { value: 'dimensity_700', label: 'Dimensity 700', cost: 60 },
+    { value: 'snapdragon_8_gen_1', label: 'Snapdragon 8 Gen 1', cost: 120 },
     { value: 'bionic_a15', label: 'Bionic A15', cost: 150 },
+    { value: 'bionic_a17_pro', label: 'Bionic A17 Pro', cost: 200 },
   ]
 };
 
@@ -49,6 +66,7 @@ export const DISPLAY_OPTIONS: PhoneComponent = {
     { value: 'lcd_fhd', label: 'LCD FHD (1080p)', cost: 50 },
     { value: 'oled_fhd', label: 'OLED FHD (1080p)', cost: 80 },
     { value: 'oled_qhd', label: 'OLED QHD (1440p)', cost: 120 },
+    { value: 'ltpo_oled_qhd', label: 'LTPO OLED QHD (1440p Adaptive)', cost: 150 },
   ]
 };
 
@@ -56,8 +74,9 @@ export const MATERIAL_OPTIONS: PhoneComponent = {
   id: 'material', name: 'Body Material', type: 'material', options: [
     { value: 'plastic', label: 'Plastic', cost: 10 },
     { value: 'aluminum', label: 'Aluminum', cost: 25 },
-    { value: 'glass', label: 'Glass (Gorilla Armor)', cost: 40 },
-    { value: 'titanium', label: 'Titanium', cost: 70 },
+    { value: 'glass_standard', label: 'Glass (Standard)', cost: 35 },
+    { value: 'glass_premium', label: 'Glass (Gorilla Armor)', cost: 50 },
+    { value: 'titanium', label: 'Titanium', cost: 80 },
   ]
 };
 
@@ -68,10 +87,52 @@ export const COLOR_OPTIONS = [
   { value: '#A9A9A9', label: 'Graphite Gray' },
   { value: '#FFC0CB', label: 'Rose Gold' },
   { value: '#00FF00', label: 'Cyber Green' },
+  { value: '#FFD700', label: 'Sunset Gold' },
+  { value: '#800080', label: 'Cosmic Purple' },
 ];
 
-// Cost per GB/MP/mAh
+// Cost per GB/MP/mAh/etc.
 export const RAM_COST_PER_GB = 5;
 export const STORAGE_COST_PER_GB = 0.2;
-export const CAMERA_COST_PER_MP = 0.5; // Base cost, can be more complex
+export const CAMERA_COST_PER_MP = 0.5;
+export const FRONT_CAMERA_COST_PER_MP = 0.6; // Slightly more for selfie optimization
 export const BATTERY_COST_PER_100MAH = 1;
+export const SCREEN_SIZE_COST_FACTOR = 15; // Cost multiplier for (size - baseSize)
+
+export const REFRESH_RATE_OPTIONS: PhoneComponent = {
+  id: 'refreshRate', name: 'Refresh Rate', type: 'refreshRate', options: [
+    { value: '60hz', label: '60Hz', cost: 0 },
+    { value: '90hz', label: '90Hz', cost: 10 },
+    { value: '120hz', label: '120Hz', cost: 25 },
+    { value: '144hz', label: '144Hz (Gaming)', cost: 40 },
+  ]
+};
+
+export const WATER_RESISTANCE_OPTIONS: PhoneComponent = {
+  id: 'waterResistance', name: 'Water Resistance', type: 'waterResistance', options: [
+    { value: 'none', label: 'None', cost: 0 },
+    { value: 'ip53', label: 'IP53 (Splash Resistant)', cost: 5 },
+    { value: 'ip67', label: 'IP67 (Dust/Water Resistant)', cost: 20 },
+    { value: 'ip68', label: 'IP68 (Enhanced Dust/Water Resistant)', cost: 35 },
+  ]
+};
+
+export const SIM_SLOT_OPTIONS: PhoneComponent = {
+  id: 'simSlots', name: 'SIM Card Slots', type: 'simSlots', options: [
+    { value: 'single_physical', label: 'Single Physical SIM', cost: 0 },
+    { value: 'dual_physical', label: 'Dual Physical SIM', cost: 5 },
+    { value: 'physical_esim', label: 'Physical SIM + eSIM', cost: 10 },
+    { value: 'dual_esim', label: 'Dual eSIM (No Physical Slot)', cost: 12},
+  ]
+};
+
+export const NFC_COST = 5; // Cost if NFC is enabled
+
+export const OPERATING_SYSTEM_OPTIONS: PhoneComponent = {
+  id: 'operatingSystem', name: 'Operating System', type: 'operatingSystem', options: [
+    { value: 'stock_android', label: 'Stock Android Experience', cost: 0 },
+    { value: 'custom_android_lite', label: 'Custom Android (Lite Skin)', cost: 5 },
+    { value: 'custom_android_feature_rich', label: 'Custom Android (Feature-Rich UI)', cost: 10 },
+    { value: 'harmonyos_like', label: 'HarmonyOS-like (Proprietary)', cost: 15 },
+  ]
+};
