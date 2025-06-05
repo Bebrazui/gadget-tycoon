@@ -73,7 +73,7 @@ export default function MyPhonesPage() {
   };
 
   const handleSellUnit = (phoneToSell: PhoneDesign) => {
-    if (phoneToSell.currentStock <= 0) {
+    if ((phoneToSell.currentStock || 0) <= 0) {
       toast({
         variant: "destructive",
         title: t('genericErrorTitle'),
@@ -84,7 +84,7 @@ export default function MyPhonesPage() {
 
     // 1. Update Phone Stock
     const updatedPhones = savedPhones.map(p => 
-      p.id === phoneToSell.id ? { ...p, currentStock: p.currentStock - 1 } : p
+      p.id === phoneToSell.id ? { ...p, currentStock: (p.currentStock || 0) - 1 } : p
     );
     setSavedPhones(updatedPhones);
     localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
@@ -214,7 +214,7 @@ export default function MyPhonesPage() {
                 {phone.review && (
                   <div>
                     <h4 className="font-semibold flex items-center mb-1"><Bot className="inline h-4 w-4 mr-1 text-primary" /> {t('aiGeneratedReview')}</h4>
-                    <p className="text-sm text-muted-foreground italic">"{phone.review}"</p>
+                    <p className="text-sm text-muted-foreground italic line-clamp-3">"{phone.review}"</p>
                   </div>
                 )}
               </CardContent>
@@ -239,3 +239,6 @@ export default function MyPhonesPage() {
     </div>
   );
 }
+
+
+    
