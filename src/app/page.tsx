@@ -1,10 +1,10 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StatCard } from "@/components/shared/StatCard";
 import { SectionTitle } from "@/components/shared/SectionTitle";
-import { DollarSign, Smartphone, Users, TrendingUp, HandCoins, Zap, Loader2 } from "lucide-react";
+import { DollarSign, Smartphone, Users, TrendingUp, HandCoins, Zap, Info } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,13 @@ import { useTranslation } from "@/hooks/useTranslation";
 import type { GameStats, PhoneDesign, Transaction } from '@/lib/types';
 import { 
     LOCAL_STORAGE_GAME_STATS_KEY, INITIAL_FUNDS, LOCAL_STORAGE_MY_PHONES_KEY,
-    LOCAL_STORAGE_TRANSACTIONS_KEY, MARKET_SALE_CHANCE, MARKET_MAX_SALES_PER_PHONE_PER_DAY
+    LOCAL_STORAGE_TRANSACTIONS_KEY, MARKET_SIMULATION_INTERVAL,
+    MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL, MARKET_SALE_CHANCE_PER_UNIT,
+    LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, MARKET_CATCH_UP_THRESHOLD_MINUTES,
+    MARKET_MAX_CATCH_UP_INTERVALS
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const defaultGameStats: GameStats = {
   totalFunds: INITIAL_FUNDS,
@@ -33,7 +37,104 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [gameStats, setGameStats] = useState<GameStats>(defaultGameStats);
   const [displayStats, setDisplayStats] = useState<DisplayStats>({ totalFunds: null, phonesSold: null });
-  const [isSimulating, setIsSimulating] = useState(false);
+  const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const performMarketSimulation = useCallback((isCatchUp = false, catchUpIntervals = 1) => {
+    let totalPhonesSoldThisCycle = 0;
+    let totalRevenueThisCycle = 0;
+    let salesNotificationsForCycle: string[] = [];
+
+    let currentPhonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
+    let currentPhones: PhoneDesign[] = currentPhonesString ? JSON.parse(currentPhonesString) : [];
+    
+    let currentStatsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
+    let currentStats: GameStats = currentStatsString ? JSON.parse(currentStatsString) : { ...defaultGameStats };
+
+    let currentTransactionsString = localStorage.getItem(LOCAL_STORAGE_TRANSACTIONS_KEY);
+    let currentTransactions: Transaction[] = currentTransactionsString ? JSON.parse(currentTransactionsString) : [];
+
+    let phonesModifiedInLoop = false;
+
+    for (let i = 0; i < catchUpIntervals; i++) {
+      let salesInThisInterval = false;
+      currentPhones = currentPhones.map(phone => {
+        if (phone.quantityListedForSale > 0) {
+          let salesForThisPhoneInInterval = 0;
+          for (let unit = 0; unit < phone.quantityListedForSale; unit++) {
+            if (Math.random() < MARKET_SALE_CHANCE_PER_UNIT && salesForThisPhoneInInterval < MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL) {
+              salesForThisPhoneInInterval++;
+            }
+          }
+          
+          if (salesForThisPhoneInInterval > 0) {
+            const revenueFromThisPhone = salesForThisPhoneInInterval * (phone.salePrice || 0);
+            currentStats.totalFunds += revenueFromThisPhone;
+            currentStats.phonesSold += salesForThisPhoneInInterval;
+            
+            phone.quantityListedForSale -= salesForThisPhoneInInterval;
+            
+            totalRevenueThisCycle += revenueFromThisPhone;
+            totalPhonesSoldThisCycle += salesForThisPhoneInInterval;
+            salesInThisInterval = true;
+            phonesModifiedInLoop = true;
+
+            salesNotificationsForCycle.push(t('marketDaySaleNotification', {
+              quantity: salesForThisPhoneInInterval,
+              phoneName: phone.name,
+              price: (phone.salePrice || 0).toFixed(2),
+              totalRevenue: revenueFromThisPhone.toFixed(2)
+            }));
+            
+            const saleTransaction: Transaction = {
+              id: `txn_market_sale_${Date.now()}_${phone.id}_${salesForThisPhoneInInterval}_${i}`,
+              date: new Date().toISOString(),
+              description: `transactionMarketSaleOf{{quantity:${salesForThisPhoneInInterval},phoneName:${phone.name},price:${(phone.salePrice || 0).toFixed(2)}}}`,
+              amount: revenueFromThisPhone,
+              type: 'income',
+            };
+            currentTransactions.push(saleTransaction);
+          }
+        }
+        return phone;
+      });
+
+      if (!isCatchUp && !salesInThisInterval && currentPhones.some(p => p.quantityListedForSale > 0)) {
+         // Optional: Notify if no sales despite items listed (can be noisy)
+         // console.log(t('marketDayNoSales'));
+      }
+    }
+
+    if (phonesModifiedInLoop) {
+      localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(currentPhones));
+      localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
+      localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
+      
+      setGameStats(currentStats); 
+      setDisplayStats({ 
+          totalFunds: `$${currentStats.totalFunds.toLocaleString(language)}`,
+          phonesSold: currentStats.phonesSold.toLocaleString(language),
+      });
+      window.dispatchEvent(new CustomEvent('myPhonesChanged'));
+      window.dispatchEvent(new CustomEvent('gameStatsChanged'));
+      window.dispatchEvent(new CustomEvent('transactionsChanged'));
+    }
+    
+    salesNotificationsForCycle.forEach(notification => {
+      toast({
+        title: t('marketDaySummaryTitle'),
+        description: notification,
+      });
+    });
+
+    if (!isCatchUp && totalPhonesSoldThisCycle === 0 && currentPhones.every(p => p.quantityListedForSale === 0) && currentPhones.length > 0) {
+      toast({
+          title: t('marketDaySummaryTitle'),
+          description: t('marketDayNoPhonesListed'),
+      });
+    }
+    localStorage.setItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, Date.now().toString());
+  }, [t, language, toast]);
+
 
   useEffect(() => {
     const loadStats = () => {
@@ -67,114 +168,41 @@ export default function DashboardPage() {
         loadStats(); 
     };
     window.addEventListener('gameStatsChanged', handleStatsUpdate);
-    return () => {
-        window.removeEventListener('gameStatsChanged', handleStatsUpdate);
-    };
 
-  }, [language]);
-
-  const simulateMarketDay = () => {
-    setIsSimulating(true);
-    let phonesSoldThisDay = 0;
-    let totalRevenueThisDay = 0;
-    let salesNotifications: string[] = [];
-
-    const phonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
-    let phones: PhoneDesign[] = phonesString ? JSON.parse(phonesString) : [];
-    
-    const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
-    let currentStats: GameStats = statsString ? JSON.parse(statsString) : { ...defaultGameStats };
-
-    const transactionsString = localStorage.getItem(LOCAL_STORAGE_TRANSACTIONS_KEY);
-    let transactions: Transaction[] = transactionsString ? JSON.parse(transactionsString) : [];
-
-    if (phones.every(p => (p.quantityListedForSale || 0) === 0)) {
-        toast({
-            title: t('marketDaySummaryTitle'),
-            description: t('marketDayNoPhonesListed'),
-        });
-        setIsSimulating(false);
-        return;
-    }
-
-    phones = phones.map(phone => {
-      if ((phone.quantityListedForSale || 0) > 0 && (phone.currentStock || 0) >= 0) { // Ensure stock is not negative from previous logic
-        let salesForThisPhone = 0;
-        const effectivelyListed = Math.min(phone.quantityListedForSale || 0, (phone.currentStock || 0) + (phone.quantityListedForSale || 0));
-
-
-        for (let i = 0; i < effectivelyListed && salesForThisPhone < MARKET_MAX_SALES_PER_PHONE_PER_DAY; i++) {
-          if (Math.random() < MARKET_SALE_CHANCE) {
-            salesForThisPhone++;
-          }
-        }
-        
-        // Ensure we don't sell more than is actually listed and available from production
-        salesForThisPhone = Math.min(salesForThisPhone, effectivelyListed);
-
-
-        if (salesForThisPhone > 0) {
-          const revenueFromThisPhone = salesForThisPhone * (phone.salePrice || 0);
-          currentStats.totalFunds += revenueFromThisPhone;
-          currentStats.phonesSold += salesForThisPhone;
-          
-          // Deduct from quantityListedForSale first. If that's not enough, it implies an issue or a direct stock sale simulation
-          // For market simulation, we assume sales are from listed quantity.
-          // The stock that was listed is now considered "sold from market listing"
-          phone.quantityListedForSale = (phone.quantityListedForSale || 0) - salesForThisPhone;
-          // currentStock was already reduced when listing. No further change to currentStock here.
-          
-          totalRevenueThisDay += revenueFromThisPhone;
-          phonesSoldThisDay += salesForThisPhone;
-
-          const saleTransaction: Transaction = {
-            id: `txn_market_sale_${Date.now()}_${phone.id}_${salesForThisPhone}`,
-            date: new Date().toISOString(),
-            description: `transactionMarketSaleOf{{quantity:${salesForThisPhone},phoneName:${phone.name},price:${(phone.salePrice || 0).toFixed(2)}}}`,
-            amount: revenueFromThisPhone,
-            type: 'income',
-          };
-          transactions.push(saleTransaction);
-          
-          salesNotifications.push(t('marketDaySaleNotification', {
-            quantity: salesForThisPhone,
-            phoneName: phone.name,
-            price: (phone.salePrice || 0).toFixed(2),
-            totalRevenue: revenueFromThisPhone.toFixed(2)
-          }));
+    // Catch-up simulation
+    const lastSimTime = localStorage.getItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY);
+    if (lastSimTime) {
+      const timeDiffMs = Date.now() - parseInt(lastSimTime, 10);
+      const timeDiffMinutes = timeDiffMs / (1000 * 60);
+      if (timeDiffMinutes > MARKET_CATCH_UP_THRESHOLD_MINUTES) {
+        const intervalsToCatchUp = Math.min(
+          Math.floor(timeDiffMs / MARKET_SIMULATION_INTERVAL),
+          MARKET_MAX_CATCH_UP_INTERVALS
+        );
+        if (intervalsToCatchUp > 0) {
+          console.log(`Performing catch-up simulation for ${intervalsToCatchUp} intervals.`);
+          performMarketSimulation(true, intervalsToCatchUp);
         }
       }
-      return phone;
-    });
-
-    localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(phones));
-    localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
-    localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(transactions));
-    
-    setGameStats(currentStats); 
-    setDisplayStats({ // Update display stats as well
-        totalFunds: `$${currentStats.totalFunds.toLocaleString(language)}`,
-        phonesSold: currentStats.phonesSold.toLocaleString(language),
-    });
-    window.dispatchEvent(new CustomEvent('myPhonesChanged'));
-    window.dispatchEvent(new CustomEvent('gameStatsChanged'));
-    window.dispatchEvent(new CustomEvent('transactionsChanged'));
-
-    if (salesNotifications.length > 0) {
-      salesNotifications.forEach(notification => {
-        toast({
-          title: t('marketDaySummaryTitle'),
-          description: notification,
-        });
-      });
     } else {
-      toast({
-        title: t('marketDaySummaryTitle'),
-        description: t('marketDayNoSales'),
-      });
+      // First time, set last sim time
+      localStorage.setItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, Date.now().toString());
     }
-    setIsSimulating(false);
-  };
+
+
+    // Setup interval for regular simulation
+    if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
+    simulationIntervalRef.current = setInterval(() => {
+      performMarketSimulation(false, 1);
+    }, MARKET_SIMULATION_INTERVAL);
+    
+
+    return () => {
+        window.removeEventListener('gameStatsChanged', handleStatsUpdate);
+        if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
+    };
+
+  }, [language, performMarketSimulation]);
 
 
   const brandReputationText = (rep: number) => {
@@ -217,6 +245,13 @@ export default function DashboardPage() {
         />
       </div>
 
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertDescription>
+          {t('marketSimulationActive')}
+        </AlertDescription>
+      </Alert>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -236,18 +271,11 @@ export default function DashboardPage() {
             <Button asChild variant="outline" size="lg">
               <Link href="/market">{t('btnAnalyzeMarket')}</Link>
             </Button>
+             <Button asChild variant="outline" size="lg">
+                <Link href="/procurement">{t('btnClientContracts')}</Link>
+            </Button>
             <Button asChild variant="default" size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground sm:col-span-2">
               <Link href="/trends">{t('btnForecastTrends')}</Link>
-            </Button>
-            <Button 
-                onClick={simulateMarketDay} 
-                variant="secondary" 
-                size="lg" 
-                className="sm:col-span-2"
-                disabled={isSimulating}
-            >
-              {isSimulating ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Zap className="mr-2 h-5 w-5"/>}
-              {t('btnSimulateMarketDay')}
             </Button>
           </CardContent>
         </Card>

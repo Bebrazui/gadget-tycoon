@@ -47,11 +47,12 @@ const translations: Translations = {
     btnAnalyzeMarket: "Analyze Market",
     btnForecastTrends: "Forecast Trends (AI)",
     btnClientContracts: "View Client Contracts",
-    btnSimulateMarketDay: "Simulate Market Day",
-    marketDaySummaryTitle: "Market Day Results",
-    marketDayNoSales: "No sales occurred this market day.",
+    // btnSimulateMarketDay: "Simulate Market Day", // Removed
+    marketDaySummaryTitle: "Market Update", // Changed from Market Day Results
+    marketDayNoSales: "No sales occurred in the last market simulation.",
     marketDaySaleNotification: "{{quantity}} unit(s) of {{phoneName}} sold for ${{price}} each. Total revenue: ${{totalRevenue}}.",
     marketDayNoPhonesListed: "No phones are currently listed for sale on the market. List some from 'My Phones'.",
+    marketSimulationActive: "Market simulation is active. Sales may occur automatically.",
     nextBigIdeaTitle: "Your Next Big Idea",
     nextBigIdeaDesc: "Start crafting your masterpiece.",
     nextBigIdeaPara: "Sketch out your vision and bring it to life. The market awaits your innovation!",
@@ -398,11 +399,12 @@ const translations: Translations = {
     btnAnalyzeMarket: "Анализировать рынок",
     btnForecastTrends: "Прогнозировать тренды (ИИ)",
     btnClientContracts: "Просмотреть контракты",
-    btnSimulateMarketDay: "Провести рыночный день",
-    marketDaySummaryTitle: "Итоги рыночного дня",
-    marketDayNoSales: "В этот рыночный день продаж не было.",
+    // btnSimulateMarketDay: "Провести рыночный день", // Removed
+    marketDaySummaryTitle: "Обновление рынка", // Changed
+    marketDayNoSales: "За последнюю симуляцию рынка продаж не было.",
     marketDaySaleNotification: "Продано {{quantity}} шт. {{phoneName}} по ${{price}} каждая. Общий доход: ${{totalRevenue}}.",
     marketDayNoPhonesListed: "На рынке нет выставленных на продажу телефонов. Выставите их со страницы 'Мои телефоны'.",
+    marketSimulationActive: "Симуляция рынка активна. Продажи могут происходить автоматически.",
     nextBigIdeaTitle: "Ваша следующая большая идея",
     nextBigIdeaDesc: "Начните создавать свой шедевр.",
     nextBigIdeaPara: "Набросайте свое видение и воплотите его в жизнь. Рынок ждет ваших инноваций!",

@@ -238,10 +238,18 @@ export const LOCAL_STORAGE_MY_PHONES_KEY = 'myPhones';
 export const LOCAL_STORAGE_BRAND_KEY = 'gadgetTycoon_brand';
 export const LOCAL_STORAGE_AVAILABLE_CONTRACTS_KEY = 'gadgetTycoon_availableContracts';
 export const LOCAL_STORAGE_ACCEPTED_CONTRACTS_KEY = 'gadgetTycoon_acceptedContracts';
+export const LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY = 'gadgetTycoon_lastMarketSimulation';
+
 
 export const SALE_MARKUP_FACTOR = 1.5; 
 export const INITIAL_FUNDS = 5000; 
 export const BASE_DESIGN_ASSEMBLY_COST = 15; 
-export const MARKET_SALE_CHANCE = 0.15; 
-export const MARKET_MAX_SALES_PER_PHONE_PER_DAY = 3;
+
+// Market Simulation Parameters
+export const MARKET_SIMULATION_INTERVAL = 60000; // 60 seconds
+export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 2; // Max units of a single phone model that can be sold in one interval
+export const MARKET_SALE_CHANCE_PER_UNIT = 0.10; // 10% chance per listed unit to be considered for sale in an interval
+export const MARKET_CATCH_UP_THRESHOLD_MINUTES = 5; // If offline for more than 5 mins, do catch-up
+export const MARKET_MAX_CATCH_UP_INTERVALS = 10; // Simulate max 10 intervals for catch-up
+
 export const MAX_AVAILABLE_CONTRACTS = 3;
