@@ -7,18 +7,18 @@ export interface Trend {
 
 export interface PhoneComponentOption {
   value: string;
-  label: string;
+  label: string; // This will often be a translation key
   cost: number;
 }
 
 export interface PhoneComponent {
   id: string;
-  name: string;
-  type: 'processor' | 'display' | 'ram' | 'storage' | 'camera' | 'battery' | 'material' | 'screenSize' | 'refreshRate' | 'waterResistance' | 'simSlots' | 'nfc' | 'operatingSystem' | 'frontCamera';
+  name: string; // This will often be a translation key
+  type: 'processor' | 'display' | 'ram' | 'storage' | 'camera' | 'battery' | 'material' | 'screenSize' | 'refreshRate' | 'waterResistance' | 'simSlots' | 'nfc' | 'operatingSystem' | 'frontCamera' | 'ois' | 'ultrawideCamera' | 'telephotoCamera' | 'telephotoZoom' | 'videoResolution';
   options?: PhoneComponentOption[]; // For discrete choices
   range?: { min: number; max: number; step: number; unit: string }; // For continuous values
   costPerUnit?: number; // For RAM, Storage, Battery capacity
-  baseCost?: number; // For boolean features like NFC
+  baseCost?: number; // For boolean features like NFC, OIS
 }
 
 export interface PhoneDesign {
@@ -28,7 +28,7 @@ export interface PhoneDesign {
   displayType: string;
   ram: number; // in GB
   storage: number; // in GB
-  cameraResolution: number; // in MP
+  cameraResolution: number; // in MP for main camera
   batteryCapacity: number; // in mAh
   material: string;
   color: string;
@@ -42,15 +42,21 @@ export interface PhoneDesign {
   nfcSupport: boolean;
   operatingSystem: string;
   frontCameraResolution: number; // in MP
+
+  // New Camera Features
+  hasOIS: boolean; // Optical Image Stabilization for main camera
+  ultrawideCameraMP: number; // Resolution in MP for ultrawide
+  telephotoCameraMP: number; // Resolution in MP for telephoto
+  telephotoZoom: string; // e.g., 'none', '2x_optical', '5x_optical'
+  videoResolution: string; // e.g., '1080p30', '4k60', '8k30'
   
   unitManufacturingCost: number; // Cost to produce ONE unit
   productionQuantity: number; // How many were produced in the initial batch
-  currentStock: number; // How many are left from that batch (produced - sold directly by player or not listed)
+  currentStock: number; // How many are left from that batch (produced - sold from stock or not listed)
 
   review?: string; // AI-generated review for the design
   imageUrl?: string; // Placeholder for a generated image if needed
 
-  // New fields for market sales
   salePrice: number; // Price set by the user for market sale
   quantityListedForSale: number; // How many units are currently on the market
 }
@@ -76,18 +82,24 @@ export interface GameStats {
 }
 
 export const PROCESSOR_OPTIONS: PhoneComponent = {
-  id: 'processor', name: 'Processor', type: 'processor', options: [
+  id: 'processor', name: 'processorLabel', type: 'processor', options: [
+    { value: 'budget_quad_core', label: 'processor_budget_quad', cost: 25 },
     { value: 'snapdragon_680', label: 'Snapdragon 680', cost: 50 },
     { value: 'helio_g99', label: 'Helio G99', cost: 45 },
     { value: 'dimensity_700', label: 'Dimensity 700', cost: 60 },
+    { value: 'snapdragon_7_gen_1', label: 'processor_snapdragon_7_gen_1', cost: 90 },
+    { value: 'dimensity_1080', label: 'processor_dimensity_1080', cost: 85 },
     { value: 'snapdragon_8_gen_1', label: 'Snapdragon 8 Gen 1', cost: 120 },
     { value: 'bionic_a15', label: 'Bionic A15', cost: 150 },
+    { value: 'dimensity_9000_plus', label: 'processor_dimensity_9000_plus', cost: 140 },
+    { value: 'snapdragon_8_gen_2', label: 'processor_snapdragon_8_gen_2', cost: 180 },
     { value: 'bionic_a17_pro', label: 'Bionic A17 Pro', cost: 200 },
+    { value: 'snapdragon_8_gen_3', label: 'processor_snapdragon_8_gen_3', cost: 220 },
   ]
 };
 
 export const DISPLAY_OPTIONS: PhoneComponent = {
-  id: 'display', name: 'Display Type', type: 'display', options: [
+  id: 'display', name: 'displayTypeLabel', type: 'display', options: [
     { value: 'lcd_hd', label: 'LCD HD (720p)', cost: 30 },
     { value: 'lcd_fhd', label: 'LCD FHD (1080p)', cost: 50 },
     { value: 'oled_fhd', label: 'OLED FHD (1080p)', cost: 80 },
@@ -97,7 +109,7 @@ export const DISPLAY_OPTIONS: PhoneComponent = {
 };
 
 export const MATERIAL_OPTIONS: PhoneComponent = {
-  id: 'material', name: 'Body Material', type: 'material', options: [
+  id: 'material', name: 'materialLabel', type: 'material', options: [
     { value: 'plastic', label: 'Plastic', cost: 10 },
     { value: 'aluminum', label: 'Aluminum', cost: 25 },
     { value: 'glass_standard', label: 'Glass (Standard)', cost: 35 },
@@ -120,13 +132,15 @@ export const COLOR_OPTIONS = [
 // Cost per GB/MP/mAh/etc.
 export const RAM_COST_PER_GB = 5;
 export const STORAGE_COST_PER_GB = 0.2;
-export const CAMERA_COST_PER_MP = 0.5;
-export const FRONT_CAMERA_COST_PER_MP = 0.6; // Slightly more for selfie optimization
+export const CAMERA_COST_PER_MP = 0.5; // Main camera
+export const FRONT_CAMERA_COST_PER_MP = 0.6;
+export const ULTRAWIDE_COST_PER_MP = 0.4;
+export const TELEPHOTO_COST_PER_MP = 0.7;
 export const BATTERY_COST_PER_100MAH = 1;
 export const SCREEN_SIZE_COST_FACTOR = 15; // Cost multiplier for (size - baseSize)
 
 export const REFRESH_RATE_OPTIONS: PhoneComponent = {
-  id: 'refreshRate', name: 'Refresh Rate', type: 'refreshRate', options: [
+  id: 'refreshRate', name: 'refreshRateLabel', type: 'refreshRate', options: [
     { value: '60hz', label: '60Hz', cost: 0 },
     { value: '90hz', label: '90Hz', cost: 10 },
     { value: '120hz', label: '120Hz', cost: 25 },
@@ -135,7 +149,7 @@ export const REFRESH_RATE_OPTIONS: PhoneComponent = {
 };
 
 export const WATER_RESISTANCE_OPTIONS: PhoneComponent = {
-  id: 'waterResistance', name: 'Water Resistance', type: 'waterResistance', options: [
+  id: 'waterResistance', name: 'waterResistanceLabel', type: 'waterResistance', options: [
     { value: 'none', label: 'None', cost: 0 },
     { value: 'ip53', label: 'IP53 (Splash Resistant)', cost: 5 },
     { value: 'ip67', label: 'IP67 (Dust/Water Resistant)', cost: 20 },
@@ -144,7 +158,7 @@ export const WATER_RESISTANCE_OPTIONS: PhoneComponent = {
 };
 
 export const SIM_SLOT_OPTIONS: PhoneComponent = {
-  id: 'simSlots', name: 'SIM Card Slots', type: 'simSlots', options: [
+  id: 'simSlots', name: 'simSlotsLabel', type: 'simSlots', options: [
     { value: 'single_physical', label: 'Single Physical SIM', cost: 0 },
     { value: 'dual_physical', label: 'Dual Physical SIM', cost: 5 },
     { value: 'physical_esim', label: 'Physical SIM + eSIM', cost: 10 },
@@ -153,15 +167,37 @@ export const SIM_SLOT_OPTIONS: PhoneComponent = {
 };
 
 export const NFC_COST = 5; // Cost if NFC is enabled
+export const OIS_COST = 15; // Cost if OIS is enabled
 
 export const OPERATING_SYSTEM_OPTIONS: PhoneComponent = {
-  id: 'operatingSystem', name: 'Operating System', type: 'operatingSystem', options: [
+  id: 'operatingSystem', name: 'osLabel', type: 'operatingSystem', options: [
     { value: 'stock_android', label: 'Stock Android Experience', cost: 0 },
     { value: 'custom_android_lite', label: 'Custom Android (Lite Skin)', cost: 5 },
     { value: 'custom_android_feature_rich', label: 'Custom Android (Feature-Rich UI)', cost: 10 },
     { value: 'harmonyos_like', label: 'HarmonyOS-like (Proprietary)', cost: 15 },
   ]
 };
+
+export const TELEPHOTO_ZOOM_OPTIONS: PhoneComponent = {
+    id: 'telephotoZoom', name: 'telephotoZoomLabel', type: 'telephotoZoom', options: [
+        { value: 'none', label: 'telephotoZoom_none', cost: 0 },
+        { value: '2x_optical', label: 'telephotoZoom_2x', cost: 20 },
+        { value: '3x_optical', label: 'telephotoZoom_3x', cost: 35 },
+        { value: '5x_optical', label: 'telephotoZoom_5x', cost: 50 },
+        { value: '10x_optical', label: 'telephotoZoom_10x', cost: 75 },
+    ]
+};
+
+export const VIDEO_RESOLUTION_OPTIONS: PhoneComponent = {
+    id: 'videoResolution', name: 'videoResolutionLabel', type: 'videoResolution', options: [
+        { value: '1080p30', label: '1080p @ 30fps', cost: 0 },
+        { value: '1080p60', label: '1080p @ 60fps', cost: 10 },
+        { value: '4k30', label: '4K @ 30fps', cost: 20 },
+        { value: '4k60', label: '4K @ 60fps', cost: 35 },
+        { value: '8k30', label: '8K @ 30fps', cost: 60 },
+    ]
+};
+
 
 // localStorage keys
 export const LOCAL_STORAGE_GAME_STATS_KEY = 'gadgetTycoon_gameStats';
@@ -171,7 +207,9 @@ export const LOCAL_STORAGE_BRAND_KEY = 'gadgetTycoon_brand';
 
 // Game Balance
 export const SALE_MARKUP_FACTOR = 1.5; // Default markup for initial salePrice = unitManufacturingCost * SALE_MARKUP_FACTOR
-export const INITIAL_FUNDS = 50000;
-export const BASE_DESIGN_ASSEMBLY_COST = 50; // Base cost added to each unit
-export const MARKET_SALE_CHANCE = 0.3; // 30% chance to sell a listed unit per market day simulation per unit
-export const MARKET_MAX_SALES_PER_PHONE_PER_DAY = 3; // Max units of a single phone model that can be sold in one market day
+export const INITIAL_FUNDS = 10000; // Reduced initial funds
+export const BASE_DESIGN_ASSEMBLY_COST = 20; // Base cost added to each unit
+export const MARKET_SALE_CHANCE = 0.25; // 25% chance to sell a listed unit per market day simulation per unit
+export const MARKET_MAX_SALES_PER_PHONE_PER_DAY = 5; // Max units of a single phone model that can be sold in one market day
+
+    

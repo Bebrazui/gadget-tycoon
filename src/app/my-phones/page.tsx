@@ -4,10 +4,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw, HandCoins, Package, TrendingUp, Edit } from 'lucide-react';
+import { Smartphone, Cpu, MemoryStick, HardDrive as StorageIcon, Camera, Zap, Fingerprint, Bot, Trash2, Info, Sparkles, ShieldCheck, Wifi, Maximize, UserCircle, RefreshCw, HandCoins, Package, TrendingUp, Edit, Video, Aperture, ZoomIn, ImageUp } from 'lucide-react';
 import Image from 'next/image';
 import type { PhoneDesign } from '@/lib/types';
 import { 
@@ -18,7 +17,8 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { SectionTitle } from '@/components/shared/SectionTitle';
 import {
   PROCESSOR_OPTIONS, DISPLAY_OPTIONS, MATERIAL_OPTIONS, REFRESH_RATE_OPTIONS,
-  WATER_RESISTANCE_OPTIONS, SIM_SLOT_OPTIONS, OPERATING_SYSTEM_OPTIONS, COLOR_OPTIONS
+  WATER_RESISTANCE_OPTIONS, SIM_SLOT_OPTIONS, OPERATING_SYSTEM_OPTIONS, COLOR_OPTIONS,
+  TELEPHOTO_ZOOM_OPTIONS, VIDEO_RESOLUTION_OPTIONS
 } from '@/lib/types';
 import Link from 'next/link';
 import {
@@ -43,19 +43,19 @@ interface SalesFormData {
 }
 
 export default function MyPhonesPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation(); // Added language
   const { toast } = useToast();
   const [savedPhones, setSavedPhones] = useState<PhoneDesign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [salesFormData, setSalesFormData] = useState<SalesFormData>({});
 
   const loadPhones = useCallback(() => {
+    setIsLoading(true);
     const phonesFromStorage = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
     let phones: PhoneDesign[] = [];
     if (phonesFromStorage) {
       try {
         const parsedPhones = JSON.parse(phonesFromStorage);
-        // Фильтруем некорректные или отсутствующие записи
         const validPhones = Array.isArray(parsedPhones) ? parsedPhones.filter(p => p && typeof p === 'object' && p.id) : [];
         setSavedPhones(validPhones);
 
@@ -63,18 +63,17 @@ export default function MyPhonesPage() {
         validPhones.forEach(phone => {
           const unitCost = phone.unitManufacturingCost || 0;
           const defaultCalculatedPrice = unitCost * SALE_MARKUP_FACTOR;
-          // Используем существующую цену продажи, если она есть и является числом, иначе рассчитываем по умолчанию
           const salePrice = typeof phone.salePrice === 'number' ? phone.salePrice : defaultCalculatedPrice;
 
           initialSalesData[phone.id] = {
             price: salePrice.toFixed(2),
-            quantityToList: (phone.quantityListedForSale || 0).toString(), // Инициализируем из данных телефона
+            quantityToList: (phone.quantityListedForSale || 0).toString(), 
           };
         });
         setSalesFormData(initialSalesData);
       } catch (error) {
         console.error("Ошибка загрузки телефонов из localStorage:", error);
-        localStorage.removeItem(LOCAL_STORAGE_MY_PHONES_KEY);
+        localStorage.removeItem(LOCAL_STORAGE_MY_PHONES_KEY); // Clear corrupted data
         setSavedPhones([]);
         setSalesFormData({});
         toast({
@@ -87,21 +86,18 @@ export default function MyPhonesPage() {
       setSavedPhones([]);
       setSalesFormData({});
     }
-  }, [t, toast]); // Зависимости для useCallback
+    setIsLoading(false);
+  }, [t, toast, SALE_MARKUP_FACTOR]); 
 
   useEffect(() => {
     loadPhones();
-    setIsLoading(false);
-
-    // Слушатель для изменений localStorage из других вкладок/окон
+    
     const handleStorageChange = (event: StorageEvent) => {
         if (event.key === LOCAL_STORAGE_MY_PHONES_KEY) {
             loadPhones();
         }
     };
     window.addEventListener('storage', handleStorageChange);
-    
-    // Слушатель для кастомного события изменения телефонов внутри приложения
     window.addEventListener('myPhonesChanged', loadPhones);
     
     return () => {
@@ -111,8 +107,10 @@ export default function MyPhonesPage() {
   }, [loadPhones]);
 
   const getLabel = (optionsArray: any[] | undefined, value: string): string => {
-    const option = optionsArray?.find(opt => opt.value === value);
-    return option ? (t(option.label) || option.label) : value;
+    if (!optionsArray || !value) return value || t('notSet');
+    const option = optionsArray.find(opt => opt.value === value);
+    // Check if option.label itself is a translation key or direct text
+    return option ? (translations[language as keyof typeof translations][option.label] || option.label) : value;
   };
 
   const handleDeletePhone = (phoneId: string) => {
@@ -149,8 +147,8 @@ export default function MyPhonesPage() {
     const quantityToList = parseInt(formData.quantityToList, 10);
     const newSalePrice = parseFloat(formData.price);
 
-    if (isNaN(quantityToList) || quantityToList < 0) { // Разрешим 0, чтобы снять с продажи
-      toast({ variant: "destructive", title: t('genericErrorTitle'), description: t('invalidQuantityNegativeOrZero') }); // Обновим ключ перевода
+    if (isNaN(quantityToList) || quantityToList < 0) { 
+      toast({ variant: "destructive", title: t('genericErrorTitle'), description: t('invalidQuantityNegative') }); 
       return;
     }
     if (isNaN(newSalePrice) || newSalePrice <= 0) {
@@ -158,54 +156,38 @@ export default function MyPhonesPage() {
       return;
     }
     
-    const stockChange = quantityToList - (phone.quantityListedForSale || 0);
+    const alreadyListed = phone.quantityListedForSale || 0;
+    // Change in stock required: positive if listing more, negative if unlisting
+    const stockChange = quantityToList - alreadyListed; 
+    const availableUnlistedStock = phone.currentStock || 0;
 
-    if (stockChange > (phone.currentStock || 0)) {
-      toast({
-        variant: "destructive",
-        title: t('genericErrorTitle'),
-        description: t('notEnoughStockToList', { quantity: stockChange, availableStock: phone.currentStock || 0 }),
-      });
-      return;
+    if (stockChange > availableUnlistedStock) {
+        toast({
+            variant: "destructive",
+            title: t('genericErrorTitle'),
+            description: t('notEnoughStockToList', { quantity: stockChange, availableStock: availableUnlistedStock }),
+        });
+        return;
     }
     
     let operationMessage = '';
 
     const updatedPhones = savedPhones.map(p => {
       if (p.id === phoneId) {
-        const alreadyListed = p.quantityListedForSale || 0;
-        const newListedQuantity = quantityToList; // Это общее новое количество, которое должно быть на рынке
-        
-        // Рассчитываем изменение на складе:
-        // Если выставляем больше, чем было: stockDelta = newListed - alreadyListed (положительное, берем со склада)
-        // Если выставляем меньше, чем было: stockDelta = newListed - alreadyListed (отрицательное, возвращаем на склад)
-        const stockDelta = newListedQuantity - alreadyListed;
+        const newListedQuantity = quantityToList;
+        const newStock = availableUnlistedStock - stockChange;
 
-        const newStock = (p.currentStock || 0) - stockDelta;
-
-        if (newStock < 0) {
-             toast({
-                variant: "destructive",
-                title: t('genericErrorTitle'),
-                description: t('notEnoughStockToListGeneral')
-             });
-             return p; // не меняем телефон, если недостаточно на складе
-        }
-        
         if (newListedQuantity > alreadyListed) {
             operationMessage = t('phoneListedSuccessfully', { quantity: newListedQuantity - alreadyListed, phoneName: p.name, price: newSalePrice.toFixed(2) });
         } else if (newListedQuantity < alreadyListed) {
             operationMessage = t('phoneUnlistedSuccessfully', { quantity: alreadyListed - newListedQuantity, phoneName: p.name });
         } else {
-             // Если количество не изменилось, но цена могла
              if (p.salePrice !== newSalePrice) {
                 operationMessage = t('priceUpdatedSuccessfully', { phoneName: p.name, price: newSalePrice.toFixed(2) });
              } else {
                 toast({ title: t('noChangesMade')}); return p;
              }
         }
-
-
         return {
           ...p,
           currentStock: newStock,
@@ -216,7 +198,6 @@ export default function MyPhonesPage() {
       return p;
     });
     
-    // Проверяем, был ли телефон обновлен (если, например, запасов не хватило)
     if (JSON.stringify(updatedPhones) !== JSON.stringify(savedPhones)) {
         setSavedPhones(updatedPhones);
         localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
@@ -224,9 +205,8 @@ export default function MyPhonesPage() {
         setSalesFormData(prev => ({
             ...prev,
             [phoneId]: {
-                ...prev[phoneId],
                 price: newSalePrice.toFixed(2),
-                // quantityToList здесь не сбрасываем в '0', так как он теперь отражает общее количество на рынке
+                quantityToList: quantityToList.toString(),
             }
         }));
 
@@ -311,11 +291,15 @@ export default function MyPhonesPage() {
                 <div className="space-y-1 text-sm">
                   <h4 className="font-semibold mb-1">{t('keySpecifications')}</h4>
                   <p><Cpu className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('processorLabel')}: {getLabel(PROCESSOR_OPTIONS.options, phone.processor)}</p>
-                  <p><Maximize className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('displayTypeLabel')}: {getLabel(DISPLAY_OPTIONS.options, phone.displayType)}</p>
+                  <p><MonitorSmartphone className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('displayTypeLabel')}: {getLabel(DISPLAY_OPTIONS.options, phone.displayType)}</p>
                   <p><MemoryStick className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('ramLabel')}: {phone.ram} GB</p>
                   <p><StorageIcon className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('storageLabel')}: {phone.storage} GB</p>
                   <p><Camera className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('cameraResolutionLabel')}: {phone.cameraResolution} MP</p>
+                  {phone.hasOIS && <p><ImageUp className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('oisLabel')}: {t('yes')}</p>}
                   <p><UserCircle className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('frontCameraResolutionLabel')}: {phone.frontCameraResolution} MP</p>
+                  {phone.ultrawideCameraMP > 0 && <p><Aperture className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('ultrawideCameraMPLabel')}: {phone.ultrawideCameraMP} MP</p>}
+                  {phone.telephotoCameraMP > 0 && <p><ZoomIn className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('telephotoCameraMPLabel')}: {phone.telephotoCameraMP} MP ({getLabel(TELEPHOTO_ZOOM_OPTIONS.options, phone.telephotoZoom)})</p>}
+                  <p><Video className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('videoResolutionLabel')}: {getLabel(VIDEO_RESOLUTION_OPTIONS.options, phone.videoResolution)}</p>
                   <p><Zap className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('batteryCapacityLabel')}: {phone.batteryCapacity} mAh</p>
                   <p><Fingerprint className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('materialLabel')}: {getLabel(MATERIAL_OPTIONS.options, phone.material)}</p>
                   <p><RefreshCw className="inline h-4 w-4 mr-1 text-muted-foreground" /> {t('refreshRateLabel')}: {getLabel(REFRESH_RATE_OPTIONS.options, phone.refreshRate)}</p>
@@ -346,7 +330,7 @@ export default function MyPhonesPage() {
                             onChange={(e) => handleSalesInputChange(phone.id, 'price', e.target.value)}
                             className="h-8 text-sm"
                             step="0.01"
-                            min="0.01" // Цена должна быть больше 0
+                            min="0.01"
                         />
                     </div>
                      <div className="space-y-1">
@@ -357,8 +341,8 @@ export default function MyPhonesPage() {
                             value={salesFormData[phone.id]?.quantityToList || '0'}
                             onChange={(e) => handleSalesInputChange(phone.id, 'quantityToList', e.target.value)}
                             className="h-8 text-sm"
-                            min="0" // Можно выставить 0, чтобы снять с продажи
-                            max={(phone.currentStock || 0) + (phone.quantityListedForSale || 0)} // Максимум - это то, что на складе + то, что уже выставлено
+                            min="0" 
+                            max={(phone.currentStock || 0) + (phone.quantityListedForSale || 0)} 
                         />
                     </div>
                     <Button 
@@ -366,10 +350,9 @@ export default function MyPhonesPage() {
                         size="sm"
                         className="w-full" 
                         onClick={() => handleListForSale(phone.id)}
-                        // Кнопка активна, если есть что менять (цена или количество)
                         disabled={
-                            (parseFloat(salesFormData[phone.id]?.price) === (phone.salePrice || 0) &&
-                             parseInt(salesFormData[phone.id]?.quantityToList, 10) === (phone.quantityListedForSale || 0))
+                            (parseFloat(salesFormData[phone.id]?.price || '0') === (phone.salePrice || 0) &&
+                             parseInt(salesFormData[phone.id]?.quantityToList || '0', 10) === (phone.quantityListedForSale || 0))
                         }
                     >
                         <HandCoins className="inline h-4 w-4 mr-2"/>{t('updateMarketListingButton')}
@@ -388,6 +371,5 @@ export default function MyPhonesPage() {
     </div>
   );
 }
-
 
     

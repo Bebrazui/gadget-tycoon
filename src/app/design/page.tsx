@@ -15,14 +15,16 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
   DollarSign, HardDrive, Smartphone, Palette, Ruler, Zap, Camera, Loader2,
-  MonitorSmartphone, RefreshCw, Droplets, GalleryVertical, SmartphoneNfc, Cog, UserCircle, Info, AlertCircle, Edit3, Package
+  MonitorSmartphone, RefreshCw, Droplets, GalleryVertical, SmartphoneNfc, Cog, UserCircle, Info, AlertCircle, Edit3, Package,
+  ShieldCheck, Video, Aperture, ZoomIn, ImageUp
 } from 'lucide-react';
 import Image from 'next/image';
 import {
   PROCESSOR_OPTIONS, DISPLAY_OPTIONS, MATERIAL_OPTIONS, COLOR_OPTIONS,
   RAM_COST_PER_GB, STORAGE_COST_PER_GB, CAMERA_COST_PER_MP, BATTERY_COST_PER_100MAH,
-  REFRESH_RATE_OPTIONS, WATER_RESISTANCE_OPTIONS, SIM_SLOT_OPTIONS, NFC_COST,
+  REFRESH_RATE_OPTIONS, WATER_RESISTANCE_OPTIONS, SIM_SLOT_OPTIONS, NFC_COST, OIS_COST,
   OPERATING_SYSTEM_OPTIONS, FRONT_CAMERA_COST_PER_MP, SCREEN_SIZE_COST_FACTOR,
+  ULTRAWIDE_COST_PER_MP, TELEPHOTO_COST_PER_MP, TELEPHOTO_ZOOM_OPTIONS, VIDEO_RESOLUTION_OPTIONS,
   type PhoneDesign, type PhoneComponentOption, type GameStats, type Transaction,
   LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY,
   INITIAL_FUNDS, BASE_DESIGN_ASSEMBLY_COST, SALE_MARKUP_FACTOR
@@ -38,7 +40,7 @@ const phoneDesignSchema = z.object({
   displayType: z.string().min(1, "validation_required"),
   ram: z.number().min(2).max(32),
   storage: z.number().min(32).max(2048),
-  cameraResolution: z.number().min(8).max(200),
+  cameraResolution: z.number().min(8).max(200), // Main camera
   batteryCapacity: z.number().min(2000).max(10000),
   material: z.string().min(1, "validation_required"),
   color: z.string().min(1, "validation_required"),
@@ -52,6 +54,12 @@ const phoneDesignSchema = z.object({
   nfcSupport: z.boolean(),
   operatingSystem: z.string().min(1, "validation_required"),
   frontCameraResolution: z.number().min(5).max(100),
+  // New camera fields
+  hasOIS: z.boolean(),
+  ultrawideCameraMP: z.number().min(0).max(64), // 0 means no ultrawide
+  telephotoCameraMP: z.number().min(0).max(64), // 0 means no telephoto
+  telephotoZoom: z.string().min(1, "validation_required"),
+  videoResolution: z.string().min(1, "validation_required"),
   productionQuantity: z.number().min(1, "validation_minProduction").max(10000, "validation_maxProduction").positive("validation_positiveNumber"),
 });
 
@@ -77,6 +85,11 @@ const defaultValues: PhoneDesignFormData = {
   nfcSupport: false,
   operatingSystem: OPERATING_SYSTEM_OPTIONS.options?.[0].value || '',
   frontCameraResolution: 12,
+  hasOIS: false,
+  ultrawideCameraMP: 0,
+  telephotoCameraMP: 0,
+  telephotoZoom: TELEPHOTO_ZOOM_OPTIONS.options?.[0].value || 'none',
+  videoResolution: VIDEO_RESOLUTION_OPTIONS.options?.[0].value || '1080p30',
   productionQuantity: 100,
 };
 
@@ -107,15 +120,21 @@ export default function DesignPhonePage() {
     unitCost += getOptionCost(MATERIAL_OPTIONS.options, watchedValues.material);
     unitCost += watchedValues.ram * RAM_COST_PER_GB;
     unitCost += watchedValues.storage * STORAGE_COST_PER_GB;
-    unitCost += watchedValues.cameraResolution * CAMERA_COST_PER_MP;
+    unitCost += watchedValues.cameraResolution * CAMERA_COST_PER_MP; // Main camera
     unitCost += (watchedValues.batteryCapacity / 100) * BATTERY_COST_PER_100MAH;
     unitCost += (watchedValues.screenSize - 5.0) * SCREEN_SIZE_COST_FACTOR; 
     unitCost += getOptionCost(REFRESH_RATE_OPTIONS.options, watchedValues.refreshRate);
     unitCost += getOptionCost(WATER_RESISTANCE_OPTIONS.options, watchedValues.waterResistance);
     unitCost += getOptionCost(SIM_SLOT_OPTIONS.options, watchedValues.simSlots);
     if (watchedValues.nfcSupport) unitCost += NFC_COST;
+    if (watchedValues.hasOIS) unitCost += OIS_COST;
     unitCost += getOptionCost(OPERATING_SYSTEM_OPTIONS.options, watchedValues.operatingSystem);
     unitCost += watchedValues.frontCameraResolution * FRONT_CAMERA_COST_PER_MP;
+    if (watchedValues.ultrawideCameraMP > 0) unitCost += watchedValues.ultrawideCameraMP * ULTRAWIDE_COST_PER_MP;
+    if (watchedValues.telephotoCameraMP > 0) unitCost += watchedValues.telephotoCameraMP * TELEPHOTO_COST_PER_MP;
+    unitCost += getOptionCost(TELEPHOTO_ZOOM_OPTIONS.options, watchedValues.telephotoZoom);
+    unitCost += getOptionCost(VIDEO_RESOLUTION_OPTIONS.options, watchedValues.videoResolution);
+    
     unitCost += BASE_DESIGN_ASSEMBLY_COST; 
     
     setUnitManufacturingCost(parseFloat(unitCost.toFixed(2)));
@@ -165,7 +184,7 @@ export default function DesignPhonePage() {
     const productionTransaction: Transaction = {
       id: `txn_prod_${Date.now()}`,
       date: new Date().toISOString(),
-      description: t('transactionProductionOf', { quantity: data.productionQuantity, phoneName: data.name }),
+      description: `transactionProductionOf{{quantity:${data.productionQuantity},phoneName:${data.name}}}`,
       amount: -currentTotalCost,
       type: 'expense',
     };
@@ -181,8 +200,8 @@ export default function DesignPhonePage() {
       productionQuantity: data.productionQuantity,
       currentStock: data.productionQuantity, 
       imageUrl: `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
-      salePrice: parseFloat((currentUnitCost * SALE_MARKUP_FACTOR).toFixed(2)), // Default sale price
-      quantityListedForSale: 0, // Initially nothing is listed
+      salePrice: parseFloat((currentUnitCost * SALE_MARKUP_FACTOR).toFixed(2)),
+      quantityListedForSale: 0, 
     };
 
     try {
@@ -190,7 +209,7 @@ export default function DesignPhonePage() {
       const existingPhones: PhoneDesign[] = existingPhonesString ? JSON.parse(existingPhonesString) : [];
       existingPhones.push(phoneToSave);
       localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(existingPhones));
-      window.dispatchEvent(new CustomEvent('myPhonesChanged')); // Notify other components
+      window.dispatchEvent(new CustomEvent('myPhonesChanged')); 
       
       toast({
         title: t('phoneDesignSavedTitle'),
@@ -242,21 +261,26 @@ export default function DesignPhonePage() {
   
   const formFields = [
     { name: "name" as keyof PhoneDesignFormData, labelKey: 'phoneNameLabel', icon: Edit3, componentType: "Input", inputType: "text"},
-    { name: "processor" as keyof PhoneDesignFormData, labelKey: 'processorLabel', icon: HardDrive, componentType: "Select", options: PROCESSOR_OPTIONS.options },
-    { name: "displayType" as keyof PhoneDesignFormData, labelKey: 'displayTypeLabel', icon: Smartphone, componentType: "Select", options: DISPLAY_OPTIONS.options },
+    { name: "processor" as keyof PhoneDesignFormData, labelKey: 'processorLabel', icon: HardDrive, componentType: "Select", options: PROCESSOR_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+    { name: "displayType" as keyof PhoneDesignFormData, labelKey: 'displayTypeLabel', icon: Smartphone, componentType: "Select", options: DISPLAY_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
     { name: "ram" as keyof PhoneDesignFormData, labelKey: 'ramLabel', icon: HardDrive, componentType: "Slider", min: 2, max: 32, step: 2, unit: "GB" },
     { name: "storage" as keyof PhoneDesignFormData, labelKey: 'storageLabel', icon: HardDrive, componentType: "Slider", min: 32, max: 2048, step: 32, unit: "GB" },
     { name: "cameraResolution" as keyof PhoneDesignFormData, labelKey: 'cameraResolutionLabel', icon: Camera, componentType: "Slider", min: 8, max: 200, step: 4, unit: "MP" },
     { name: "frontCameraResolution" as keyof PhoneDesignFormData, labelKey: 'frontCameraResolutionLabel', icon: UserCircle, componentType: "Slider", min: 5, max: 100, step: 1, unit: "MP"},
+    { name: "ultrawideCameraMP" as keyof PhoneDesignFormData, labelKey: 'ultrawideCameraMPLabel', icon: Aperture, componentType: "Slider", min: 0, max: 64, step: 2, unit: "MP"},
+    { name: "telephotoCameraMP" as keyof PhoneDesignFormData, labelKey: 'telephotoCameraMPLabel', icon: ZoomIn, componentType: "Slider", min: 0, max: 64, step: 2, unit: "MP"},
+    { name: "telephotoZoom" as keyof PhoneDesignFormData, labelKey: 'telephotoZoomLabel', icon: ZoomIn, componentType: "Select", options: TELEPHOTO_ZOOM_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+    { name: "videoResolution" as keyof PhoneDesignFormData, labelKey: 'videoResolutionLabel', icon: Video, componentType: "Select", options: VIDEO_RESOLUTION_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+    { name: "hasOIS" as keyof PhoneDesignFormData, labelKey: 'oisLabel', icon: ImageUp, componentType: "Switch"},
     { name: "batteryCapacity" as keyof PhoneDesignFormData, labelKey: 'batteryCapacityLabel', icon: Zap, componentType: "Slider", min: 2000, max: 10000, step: 100, unit: "mAh" },
-    { name: "material" as keyof PhoneDesignFormData, labelKey: 'materialLabel', icon: Smartphone, componentType: "Select", options: MATERIAL_OPTIONS.options },
+    { name: "material" as keyof PhoneDesignFormData, labelKey: 'materialLabel', icon: Smartphone, componentType: "Select", options: MATERIAL_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
     { name: "color" as keyof PhoneDesignFormData, labelKey: 'colorLabel', icon: Palette, componentType: "Select", options: COLOR_OPTIONS.map(c => ({...c, cost: 0, label: t(c.label) || c.label })) }, 
     { name: "screenSize" as keyof PhoneDesignFormData, labelKey: 'screenSizeLabel', icon: MonitorSmartphone, componentType: "Slider", min: 5.0, max: 7.5, step: 0.1, unit: t('inchesUnit') },
-    { name: "refreshRate" as keyof PhoneDesignFormData, labelKey: 'refreshRateLabel', icon: RefreshCw, componentType: "Select", options: REFRESH_RATE_OPTIONS.options },
-    { name: "waterResistance" as keyof PhoneDesignFormData, labelKey: 'waterResistanceLabel', icon: Droplets, componentType: "Select", options: WATER_RESISTANCE_OPTIONS.options },
-    { name: "simSlots" as keyof PhoneDesignFormData, labelKey: 'simSlotsLabel', icon: GalleryVertical, componentType: "Select", options: SIM_SLOT_OPTIONS.options },
-    { name: "operatingSystem" as keyof PhoneDesignFormData, labelKey: 'osLabel', icon: Cog, componentType: "Select", options: OPERATING_SYSTEM_OPTIONS.options },
-    { name: "nfcSupport" as keyof PhoneDesignFormData, labelKey: 'nfcSupportLabel', icon: SmartphoneNfc, componentType: "Switch"},
+    { name: "refreshRate" as keyof PhoneDesignFormData, labelKey: 'refreshRateLabel', icon: RefreshCw, componentType: "Select", options: REFRESH_RATE_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+    { name: "waterResistance" as keyof PhoneDesignFormData, labelKey: 'waterResistanceLabel', icon: Droplets, componentType: "Select", options: WATER_RESISTANCE_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+    { name: "simSlots" as keyof PhoneDesignFormData, labelKey: 'simSlotsLabel', icon: GalleryVertical, componentType: "Select", options: SIM_SLOT_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+    { name: "operatingSystem" as keyof PhoneDesignFormData, labelKey: 'osLabel', icon: Cog, componentType: "Select", options: OPERATING_SYSTEM_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+    { name: "nfcSupport" as keyof PhoneDesignFormData, labelKey: 'nfcSupportLabel', icon: SmartphoneNfc, componentType: "Switch", cost: NFC_COST},
     { name: "height" as keyof PhoneDesignFormData, labelKey: 'heightLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
     { name: "width" as keyof PhoneDesignFormData, labelKey: 'widthLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
     { name: "thickness" as keyof PhoneDesignFormData, labelKey: 'thicknessLabel', icon: Ruler, componentType: "Input", inputType: "number", unit: "mm" },
@@ -279,8 +303,9 @@ export default function DesignPhonePage() {
                   {t(field.labelKey)}
                   {(field.componentType === "Slider") && (
                     <span className="ml-auto text-sm text-foreground">
-                      {watchedValues[field.name as keyof PhoneDesignFormData]}
+                      {String(watchedValues[field.name as keyof PhoneDesignFormData])}
                       {field.unit ? ` ${t(field.unit) || field.unit}` : ''}
+                      { (field.name === 'ultrawideCameraMP' || field.name === 'telephotoCameraMP') && Number(watchedValues[field.name as keyof PhoneDesignFormData]) === 0 ? ` (${t('disabled')})` : ''}
                     </span>
                   )}
                 </Label>
@@ -298,7 +323,7 @@ export default function DesignPhonePage() {
                           <SelectContent>
                             {field.options?.map(option => (
                               <SelectItem key={option.value} value={option.value}>
-                                {t(option.label) || option.label} {option.cost > 0 ? `(+$${option.cost})` : (option.cost < 0 ? `(-$${Math.abs(option.cost)})` : '')}
+                                {option.label} {option.cost > 0 ? `(+$${option.cost})` : (option.cost < 0 ? `(-$${Math.abs(option.cost)})` : '')}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -334,6 +359,7 @@ export default function DesignPhonePage() {
                       );
                     }
                     if (field.componentType === "Switch") {
+                      const costText = field.name === 'nfcSupport' ? `(+$${NFC_COST})` : field.name === 'hasOIS' ? `(+$${OIS_COST})` : '';
                       return (
                         <div className="flex items-center space-x-2">
                           <Switch
@@ -342,7 +368,7 @@ export default function DesignPhonePage() {
                             onCheckedChange={commonProps.onChange}
                           />
                           <Label htmlFor={field.name} className="text-sm text-muted-foreground">
-                            {Boolean(commonProps.value) ? t('enabled') : t('disabled')} (+${NFC_COST})
+                            {Boolean(commonProps.value) ? t('enabled') : t('disabled')} {costText}
                           </Label>
                         </div>
                       );
@@ -401,7 +427,13 @@ export default function DesignPhonePage() {
                  <p className="text-[0.6rem] leading-tight text-muted-foreground">{PROCESSOR_OPTIONS.options?.find(o=>o.value === watchedValues.processor)?.label.split(' ')[0]}</p>
                  <p className="text-[0.6rem] leading-tight text-muted-foreground">{watchedValues.ram}GB RAM, {watchedValues.storage}GB</p>
                  <p className="text-[0.6rem] leading-tight text-muted-foreground">{watchedValues.screenSize}" {DISPLAY_OPTIONS.options?.find(o=>o.value === watchedValues.displayType)?.label.split(' ')[0]}</p>
-                 <p className="text-[0.6rem] leading-tight text-muted-foreground">{watchedValues.cameraResolution}MP / {watchedValues.frontCameraResolution}MP Cam</p>
+                 <p className="text-[0.5rem] leading-tight text-muted-foreground">
+                    Main: {watchedValues.cameraResolution}MP {watchedValues.hasOIS ? '(OIS)' : ''}
+                    {watchedValues.ultrawideCameraMP > 0 ? `, UW: ${watchedValues.ultrawideCameraMP}MP` : ''}
+                    {watchedValues.telephotoCameraMP > 0 ? `, Tele: ${watchedValues.telephotoCameraMP}MP (${TELEPHOTO_ZOOM_OPTIONS.options?.find(o=>o.value === watchedValues.telephotoZoom)?.label.replace(' Optical Zoom', '') || ''})` : ''}
+                 </p>
+                 <p className="text-[0.5rem] leading-tight text-muted-foreground">Front: {watchedValues.frontCameraResolution}MP</p>
+                 <p className="text-[0.5rem] leading-tight text-muted-foreground">Video: {VIDEO_RESOLUTION_OPTIONS.options?.find(o=>o.value === watchedValues.videoResolution)?.label}</p>
                  <p className="text-[0.6rem] leading-tight text-muted-foreground">{REFRESH_RATE_OPTIONS.options?.find(o=>o.value === watchedValues.refreshRate)?.label}</p>
               </div>
             </div>
@@ -465,3 +497,5 @@ export default function DesignPhonePage() {
     </div>
   );
 }
+
+    

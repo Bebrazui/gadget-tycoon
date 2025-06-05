@@ -61,6 +61,12 @@ const translations: Translations = {
     phoneNameLabel: "Phone Name",
     phoneNamePlaceholder: "e.g., Titan X, Nova Slim",
     processorLabel: "Processor",
+    processor_budget_quad: "Budget Quad-Core",
+    processor_snapdragon_7_gen_1: "Snapdragon 7 Gen 1",
+    processor_dimensity_1080: "Dimensity 1080",
+    processor_dimensity_9000_plus: "Dimensity 9000+",
+    processor_snapdragon_8_gen_2: "Snapdragon 8 Gen 2",
+    processor_snapdragon_8_gen_3: "Snapdragon 8 Gen 3",
     displayTypeLabel: "Display Type",
     ramLabel: "RAM (GB)",
     storageLabel: "Storage (GB)",
@@ -76,6 +82,16 @@ const translations: Translations = {
     simSlotsLabel: "SIM Slots",
     osLabel: "Operating System",
     nfcSupportLabel: "NFC Support",
+    oisLabel: "Optical Image Stabilization (OIS)",
+    ultrawideCameraMPLabel: "Ultrawide Camera (MP)",
+    telephotoCameraMPLabel: "Telephoto Camera (MP)",
+    telephotoZoomLabel: "Telephoto Optical Zoom",
+    telephotoZoom_none: "None",
+    telephotoZoom_2x: "2x Optical Zoom",
+    telephotoZoom_3x: "3x Optical Zoom",
+    telephotoZoom_5x: "5x Optical Zoom",
+    telephotoZoom_10x: "10x Optical Zoom",
+    videoResolutionLabel: "Video Resolution",
     heightLabel: "Height (mm)",
     widthLabel: "Width (mm)",
     thicknessLabel: "Thickness (mm)",
@@ -125,9 +141,6 @@ const translations: Translations = {
     aiGeneratedReview: "AI Design Review",
     loadingPhones: "Loading your phones...",
     editDesignButton: "View/Edit Design Details (Concept)", 
-    sellOneUnitButton: "Sell 1 Unit", // Kept for reference, but not used now
-    phoneSoldToastTitle: "Phone Sold!", // Kept for reference
-    phoneSoldToastDesc: "1 unit of {{name}} successfully sold for ${{price}}.", // Kept for reference
     deletePhoneConfirmTitle: "Delete Phone Design & Stock?",
     deletePhoneConfirmDesc: "Are you sure you want to delete '{{name}}' and all its stock (including listed units)? This action cannot be undone.",
     phoneDeletedTitle: "Phone Model Deleted",
@@ -217,7 +230,6 @@ const translations: Translations = {
     descriptionLabel: "Description",
     amountLabel: "Amount",
     financialReportsComingSoon: "Detailed Financial Reports and Budgeting Tools",
-    transactionSaleOf: "Sale of {{quantity}} unit(s) of {{phoneName}} at ${{price}} each", // Old direct sale
     transactionMarketSaleOf: "Market sale: {{quantity}} x {{phoneName}} @ ${{price}}",
     transactionProductionOf: "Production of {{quantity}} units of {{phoneName}}",
     transactionMarketingCampaign: "Marketing Campaign - Social Media",
@@ -267,7 +279,6 @@ const translations: Translations = {
     validation_positiveNumber: "{{field}} must be a positive number.",
     validation_minProduction: "{{field}} must be at least 1.",
     validation_maxProduction: "{{field}} cannot exceed 10,000.",
-
   },
   ru: {
     // Sidebar
@@ -326,6 +337,12 @@ const translations: Translations = {
     phoneNameLabel: "Название телефона",
     phoneNamePlaceholder: "например, Титан X, Нова Слим",
     processorLabel: "Процессор",
+    processor_budget_quad: "Бюджетный 4-ядерный",
+    processor_snapdragon_7_gen_1: "Snapdragon 7 Gen 1",
+    processor_dimensity_1080: "Dimensity 1080",
+    processor_dimensity_9000_plus: "Dimensity 9000+",
+    processor_snapdragon_8_gen_2: "Snapdragon 8 Gen 2",
+    processor_snapdragon_8_gen_3: "Snapdragon 8 Gen 3",
     displayTypeLabel: "Тип дисплея",
     ramLabel: "ОЗУ (ГБ)",
     storageLabel: "Память (ГБ)",
@@ -341,6 +358,16 @@ const translations: Translations = {
     simSlotsLabel: "Слоты SIM-карт",
     osLabel: "Операционная система",
     nfcSupportLabel: "Поддержка NFC",
+    oisLabel: "Оптическая стабилизация (OIS)",
+    ultrawideCameraMPLabel: "Ультраширокоугольная камера (МП)",
+    telephotoCameraMPLabel: "Телефото камера (МП)",
+    telephotoZoomLabel: "Оптический зум телефото",
+    telephotoZoom_none: "Нет",
+    telephotoZoom_2x: "2x Оптический зум",
+    telephotoZoom_3x: "3x Оптический зум",
+    telephotoZoom_5x: "5x Оптический зум",
+    telephotoZoom_10x: "10x Оптический зум",
+    videoResolutionLabel: "Разрешение видео",
     heightLabel: "Высота (мм)",
     widthLabel: "Ширина (мм)",
     thicknessLabel: "Толщина (мм)",
@@ -389,10 +416,7 @@ const translations: Translations = {
     keySpecifications: "Ключевые характеристики",
     aiGeneratedReview: "Обзор дизайна от ИИ",
     loadingPhones: "Загрузка ваших телефонов...",
-    editDesignButton: "Обзор/Редактирование Дизайна (Концепт)",
-    sellOneUnitButton: "Продать 1 шт.", // Сохранено для справки
-    phoneSoldToastTitle: "Телефон продан!", // Сохранено для справки
-    phoneSoldToastDesc: "1 единица {{name}} успешно продана за ${{price}}.", // Сохранено для справки
+    editDesignButton: "Обзор/Редактирование Дизайна (Концепт)", 
     deletePhoneConfirmTitle: "Удалить модель телефона и остатки?",
     deletePhoneConfirmDesc: "Вы уверены, что хотите удалить модель '{{name}}' и все ее остатки на складе (включая выставленные на продажу)? Это действие нельзя отменить.",
     phoneDeletedTitle: "Модель телефона удалена",
@@ -482,7 +506,6 @@ const translations: Translations = {
     descriptionLabel: "Описание",
     amountLabel: "Сумма",
     financialReportsComingSoon: "Подробные финансовые отчеты и инструменты бюджетирования",
-    transactionSaleOf: "Продажа {{quantity}} шт. {{phoneName}} по ${{price}} каждая", // Старая прямая продажа
     transactionMarketSaleOf: "Рыночная продажа: {{quantity}} x {{phoneName}} @ ${{price}}",
     transactionProductionOf: "Производство {{quantity}} шт. {{phoneName}}",
     transactionMarketingCampaign: "Маркетинговая кампания - Социальные сети",
@@ -536,3 +559,5 @@ const translations: Translations = {
 };
 
 export default translations;
+
+    
