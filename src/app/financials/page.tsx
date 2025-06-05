@@ -15,7 +15,7 @@ const defaultInitialTransactions: Transaction[] = [];
 
 
 export default function FinancialsPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [financialSummary, setFinancialSummary] = useState({
     revenue: 0,
@@ -69,22 +69,22 @@ export default function FinancialsPage() {
     setFinancialSummary({ revenue, costs, profit });
   }, [transactions]);
 
-  // Enhanced getTransactionDescription to handle more complex placeholder structures
   const getTransactionDescription = (txn: Transaction): string => {
     if (txn.description.startsWith("transactionProductionOf")) {
-        // Example: "transactionProductionOf{{quantity:100,phoneName:My Awesome Phone}}"
         const paramsMatch = txn.description.match(/{{quantity:(\d+),phoneName:(.*)}}/);
         if (paramsMatch) {
             return t('transactionProductionOf', { quantity: paramsMatch[1], phoneName: paramsMatch[2] });
         }
     } else if (txn.description.startsWith("transactionMarketSaleOf")) {
-        // Example: "transactionMarketSaleOf{{quantity:2,phoneName:My Awesome Phone,price:199.99}}"
-        const paramsMatch = txn.description.match(/{{quantity:(\d+),phoneName:(.*),price:([\d.]+)}}/);
+        const paramsMatch = txn.description.match(/{{quantity:([\d.]+),phoneName:(.*),price:([\d.]+)}}/);
         if (paramsMatch) {
-            return t('transactionMarketSaleOf', { quantity: paramsMatch[1], phoneName: paramsMatch[2], price: paramsMatch[3] });
+             return t('transactionMarketSaleOf', { 
+                quantity: parseFloat(paramsMatch[1]).toLocaleString(language), 
+                phoneName: paramsMatch[2], 
+                price: parseFloat(paramsMatch[3]).toLocaleString(language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            });
         }
     }
-    // Fallback for simple keys or already formatted strings
     return t(txn.description) || txn.description;
   }
 
@@ -103,7 +103,7 @@ export default function FinancialsPage() {
             <TrendingUp className="h-5 w-5 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialSummary.revenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+            <div className="text-2xl font-bold">${financialSummary.revenue.toLocaleString(language, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
             <p className="text-xs text-muted-foreground">{t('totalRevenueDesc')}</p>
           </CardContent>
         </Card>
@@ -113,7 +113,7 @@ export default function FinancialsPage() {
             <TrendingDown className="h-5 w-5 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialSummary.costs.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+            <div className="text-2xl font-bold">${financialSummary.costs.toLocaleString(language, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
             <p className="text-xs text-muted-foreground">{t('totalCostsDesc')}</p>
           </CardContent>
         </Card>
@@ -123,7 +123,7 @@ export default function FinancialsPage() {
             <Banknote className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialSummary.profit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+            <div className="text-2xl font-bold">${financialSummary.profit.toLocaleString(language, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
             <p className="text-xs text-muted-foreground">
               {t('profitMargin', { margin: (financialSummary.revenue > 0 ? (financialSummary.profit / financialSummary.revenue * 100) : 0).toFixed(1) })}
             </p>
@@ -152,12 +152,12 @@ export default function FinancialsPage() {
               <TableBody>
                 {transactions.map((txn) => (
                   <TableRow key={txn.id}>
-                    <TableCell>{new Date(txn.date).toLocaleDateString(t('languageLabel') === 'Русский' ? 'ru-RU' : 'en-US')}</TableCell>
+                    <TableCell>{new Date(txn.date).toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US')}</TableCell>
                     <TableCell className="font-medium">
                        {getTransactionDescription(txn)}
                     </TableCell>
                     <TableCell className={`text-right font-semibold ${txn.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
-                      {txn.type === 'income' ? '+' : '-'}${Math.abs(txn.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      {txn.type === 'income' ? '+' : '-'}${Math.abs(txn.amount).toLocaleString(language, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </TableCell>
                   </TableRow>
                 ))}
