@@ -12,11 +12,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
   DollarSign, HardDrive, Smartphone, Palette, Ruler, Zap, Camera, Loader2,
-  MonitorSmartphone, RefreshCw, Droplets, GalleryVertical, SmartphoneNfc, Cog, UserCircle, Info
+  MonitorSmartphone, RefreshCw, Droplets, GalleryVertical, SmartphoneNfc, Cog, UserCircle, Info, AlertCircle, Edit3
 } from 'lucide-react';
 import Image from 'next/image';
 import {
@@ -28,12 +27,14 @@ import {
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/hooks/useTranslation';
+import { getPhoneReview, type GenerateReviewFormState } from './actions';
 
 const phoneDesignSchema = z.object({
+  name: z.string().min(3, "Phone name must be at least 3 characters").max(50, "Phone name must be at most 50 characters"),
   processor: z.string().min(1, "Processor is required"),
   displayType: z.string().min(1, "Display type is required"),
   ram: z.number().min(2).max(32),
-  storage: z.number().min(32).max(2048), // Increased max storage
+  storage: z.number().min(32).max(2048),
   cameraResolution: z.number().min(8).max(200),
   batteryCapacity: z.number().min(2000).max(10000),
   material: z.string().min(1, "Material is required"),
@@ -41,7 +42,6 @@ const phoneDesignSchema = z.object({
   height: z.number().min(100).max(200),
   width: z.number().min(50).max(100),
   thickness: z.number().min(5).max(15),
-  // New fields
   screenSize: z.number().min(5.0).max(7.5).step(0.1),
   refreshRate: z.string().min(1, "Refresh rate is required"),
   waterResistance: z.string().min(1, "Water resistance rating is required"),
@@ -54,6 +54,7 @@ const phoneDesignSchema = z.object({
 type PhoneDesignFormData = z.infer<typeof phoneDesignSchema>;
 
 const defaultValues: PhoneDesignFormData = {
+  name: '',
   processor: PROCESSOR_OPTIONS.options?.[0].value || '',
   displayType: DISPLAY_OPTIONS.options?.[0].value || '',
   ram: 8,
@@ -65,7 +66,6 @@ const defaultValues: PhoneDesignFormData = {
   height: 160,
   width: 75,
   thickness: 8,
-  // New defaults
   screenSize: 6.1,
   refreshRate: REFRESH_RATE_OPTIONS.options?.[0].value || '',
   waterResistance: WATER_RESISTANCE_OPTIONS.options?.[0].value || '',
@@ -80,8 +80,10 @@ export default function DesignPhonePage() {
   const { toast } = useToast();
   const [estimatedCost, setEstimatedCost] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingReview, setIsGeneratingReview] = useState(false);
+  const [reviewState, setReviewState] = useState<GenerateReviewFormState | null>(null);
 
-  const { control, handleSubmit, watch, formState: { errors } } = useForm<PhoneDesignFormData>({
+  const { control, handleSubmit, watch, formState: { errors }, reset } = useForm<PhoneDesignFormData>({
     resolver: zodResolver(phoneDesignSchema),
     defaultValues,
   });
@@ -97,24 +99,18 @@ export default function DesignPhonePage() {
     cost += getOptionCost(PROCESSOR_OPTIONS.options, watchedValues.processor);
     cost += getOptionCost(DISPLAY_OPTIONS.options, watchedValues.displayType);
     cost += getOptionCost(MATERIAL_OPTIONS.options, watchedValues.material);
-    
     cost += watchedValues.ram * RAM_COST_PER_GB;
     cost += watchedValues.storage * STORAGE_COST_PER_GB;
     cost += watchedValues.cameraResolution * CAMERA_COST_PER_MP;
     cost += (watchedValues.batteryCapacity / 100) * BATTERY_COST_PER_100MAH;
-
-    // New component costs
-    cost += (watchedValues.screenSize - 5.0) * SCREEN_SIZE_COST_FACTOR; // Assuming 5.0 inch is base
+    cost += (watchedValues.screenSize - 5.0) * SCREEN_SIZE_COST_FACTOR;
     cost += getOptionCost(REFRESH_RATE_OPTIONS.options, watchedValues.refreshRate);
     cost += getOptionCost(WATER_RESISTANCE_OPTIONS.options, watchedValues.waterResistance);
     cost += getOptionCost(SIM_SLOT_OPTIONS.options, watchedValues.simSlots);
     if (watchedValues.nfcSupport) cost += NFC_COST;
     cost += getOptionCost(OPERATING_SYSTEM_OPTIONS.options, watchedValues.operatingSystem);
     cost += watchedValues.frontCameraResolution * FRONT_CAMERA_COST_PER_MP;
-    
-    // Base design & assembly cost
-    cost += 50;
-
+    cost += 50; // Base design & assembly cost
     setEstimatedCost(cost);
   }, [watchedValues]);
 
@@ -124,17 +120,68 @@ export default function DesignPhonePage() {
 
   const onSubmit = async (data: PhoneDesignFormData) => {
     setIsSubmitting(true);
-    console.log("Phone Design Submitted:", data);
-    console.log("Estimated Cost:", estimatedCost);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    toast({
-      title: t('phoneDesignSavedTitle'),
-      description: t('phoneDesignSavedDesc', { cost: estimatedCost.toFixed(2) }),
-    });
-    setIsSubmitting(false);
-  };
+    setReviewState(null); // Clear previous review state
 
+    const phoneToSave: PhoneDesign = {
+      ...data,
+      id: Date.now().toString(), // Simple unique ID
+      estimatedCost: parseFloat(estimatedCost.toFixed(2)),
+      imageUrl: `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
+    };
+
+    // Save basic phone design to localStorage
+    try {
+      const existingPhonesString = localStorage.getItem('myPhones');
+      const existingPhones: PhoneDesign[] = existingPhonesString ? JSON.parse(existingPhonesString) : [];
+      existingPhones.push(phoneToSave);
+      localStorage.setItem('myPhones', JSON.stringify(existingPhones));
+      
+      toast({
+        title: t('phoneDesignSavedTitle'),
+        description: t('phoneDesignSavedDesc', { name: data.name, cost: phoneToSave.estimatedCost.toFixed(2) }),
+      });
+
+      // Generate AI Review
+      setIsGeneratingReview(true);
+      const reviewResult = await getPhoneReview(phoneToSave);
+      setReviewState(reviewResult);
+      setIsGeneratingReview(false);
+
+      if (reviewResult.review && !reviewResult.error) {
+        // Update localStorage with the review
+        const phonesAfterReviewString = localStorage.getItem('myPhones');
+        let phonesAfterReview: PhoneDesign[] = phonesAfterReviewString ? JSON.parse(phonesAfterReviewString) : [];
+        phonesAfterReview = phonesAfterReview.map(p => 
+          p.id === phoneToSave.id ? { ...p, review: reviewResult.review?.reviewText } : p
+        );
+        localStorage.setItem('myPhones', JSON.stringify(phonesAfterReview));
+        toast({
+          title: t('aiReviewGeneratedTitle'),
+          description: t('aiReviewGeneratedDesc', {name: data.name})
+        });
+      } else if (reviewResult.error) {
+         toast({
+          variant: "destructive",
+          title: t('aiReviewErrorTitle'),
+          description: reviewResult.message || t('aiReviewErrorDesc'),
+        });
+      }
+      reset(defaultValues); // Reset form after successful save and review attempt
+
+    } catch (error) {
+      console.error("Error saving phone or generating review:", error);
+      toast({
+        variant: "destructive",
+        title: t('genericErrorTitle'),
+        description: t('genericErrorDesc'),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
   const formFields = [
+    { name: "name" as keyof PhoneDesignFormData, label: t('phoneNameLabel'), icon: Edit3, componentType: "Input", inputType: "text"},
     { name: "processor" as keyof PhoneDesignFormData, label: t('processorLabel'), icon: HardDrive, componentType: "Select", options: PROCESSOR_OPTIONS.options },
     { name: "displayType" as keyof PhoneDesignFormData, label: t('displayTypeLabel'), icon: Smartphone, componentType: "Select", options: DISPLAY_OPTIONS.options },
     { name: "ram" as keyof PhoneDesignFormData, label: t('ramLabel'), icon: HardDrive, componentType: "Slider", min: 2, max: 32, step: 2, unit: "GB" },
@@ -143,7 +190,7 @@ export default function DesignPhonePage() {
     { name: "frontCameraResolution" as keyof PhoneDesignFormData, label: t('frontCameraResolutionLabel'), icon: UserCircle, componentType: "Slider", min: 5, max: 100, step: 1, unit: "MP"},
     { name: "batteryCapacity" as keyof PhoneDesignFormData, label: t('batteryCapacityLabel'), icon: Zap, componentType: "Slider", min: 2000, max: 10000, step: 100, unit: "mAh" },
     { name: "material" as keyof PhoneDesignFormData, label: t('materialLabel'), icon: Smartphone, componentType: "Select", options: MATERIAL_OPTIONS.options },
-    { name: "color" as keyof PhoneDesignFormData, label: t('colorLabel'), icon: Palette, componentType: "Select", options: COLOR_OPTIONS.map(c => ({...c, cost: 0})) }, // Color cost is usually included or minor
+    { name: "color" as keyof PhoneDesignFormData, label: t('colorLabel'), icon: Palette, componentType: "Select", options: COLOR_OPTIONS.map(c => ({...c, cost: 0})) },
     { name: "screenSize" as keyof PhoneDesignFormData, label: t('screenSizeLabel'), icon: MonitorSmartphone, componentType: "Slider", min: 5.0, max: 7.5, step: 0.1, unit: t('inchesUnit') },
     { name: "refreshRate" as keyof PhoneDesignFormData, label: t('refreshRateLabel'), icon: RefreshCw, componentType: "Select", options: REFRESH_RATE_OPTIONS.options },
     { name: "waterResistance" as keyof PhoneDesignFormData, label: t('waterResistanceLabel'), icon: Droplets, componentType: "Select", options: WATER_RESISTANCE_OPTIONS.options },
@@ -169,7 +216,7 @@ export default function DesignPhonePage() {
                 <Label htmlFor={field.name} className="flex items-center">
                   {field.icon && <field.icon className="w-4 h-4 mr-2 text-muted-foreground" />}
                   {field.label}
-                  {(field.componentType === "Slider" || field.componentType === "Input") && (
+                  {(field.componentType === "Slider" || (field.componentType === "Input" && field.inputType === "number") ) && (
                     <span className="ml-auto text-sm text-foreground">
                       {watchedValues[field.name as keyof PhoneDesignFormData]}
                       {field.unit ? ` ${field.unit}` : ''}
@@ -215,8 +262,9 @@ export default function DesignPhonePage() {
                           value={String(commonProps.value)}
                           onChange={(e) => {
                             const val = field.inputType === 'number' ? parseFloat(e.target.value) : e.target.value;
-                            commonProps.onChange(isNaN(val as number) ? 0 : val);
+                            commonProps.onChange(isNaN(val as number) && field.inputType === 'number' ? 0 : val);
                           }}
+                           placeholder={field.name === 'name' ? t('phoneNamePlaceholder') : ''}
                         />
                       );
                     }
@@ -242,9 +290,9 @@ export default function DesignPhonePage() {
             ))}
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('saveDesignButton')}
+            <Button type="submit" disabled={isSubmitting || isGeneratingReview}>
+              {(isSubmitting || isGeneratingReview) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isGeneratingReview ? t('generatingReviewButton') : t('saveDesignButton')}
             </Button>
           </CardFooter>
         </form>
@@ -270,8 +318,8 @@ export default function DesignPhonePage() {
               className="bg-muted rounded-xl border-4 border-foreground/50 flex items-center justify-center p-1 overflow-hidden" 
               style={{ 
                 borderColor: watchedValues.color, 
-                width: `${Math.max(60, watchedValues.width * 0.4 + 40)}px`, // Dynamic width based on phone width
-                height: `${Math.max(120, watchedValues.height * 0.4 + 80)}px`, // Dynamic height
+                width: `${Math.max(60, watchedValues.width * 0.4 + 40)}px`, 
+                height: `${Math.max(120, watchedValues.height * 0.4 + 80)}px`,
               }}
             >
               <div className="w-full h-full bg-background rounded-sm flex flex-col items-center justify-center text-center p-1">
@@ -293,12 +341,50 @@ export default function DesignPhonePage() {
              <p className="text-xs text-muted-foreground text-center mt-1">{WATER_RESISTANCE_OPTIONS.options?.find(o=>o.value === watchedValues.waterResistance)?.label}</p>
           </CardContent>
         </Card>
+        {reviewState && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('aiReviewCardTitle')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {reviewState.error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>{t('aiReviewErrorTitle')}</AlertTitle>
+                  <AlertDescription>{reviewState.message}</AlertDescription>
+                </Alert>
+              )}
+              {reviewState.review && !reviewState.error && (
+                <div className="space-y-3">
+                  <div>
+                    <h4 className="font-semibold">{t('reviewOverallSentiment')}: <span className={`font-normal ${reviewState.review.overallSentiment === 'Positive' ? 'text-green-500' : reviewState.review.overallSentiment === 'Negative' ? 'text-red-500' : 'text-yellow-500'}`}>{reviewState.review.overallSentiment}</span></h4>
+                    <p className="text-sm text-muted-foreground italic">"{reviewState.review.reviewText}"</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">{t('reviewPros')}:</h4>
+                    <ul className="list-disc list-inside text-sm text-muted-foreground">
+                      {reviewState.review.pros.map((pro, i) => <li key={i}>{pro}</li>)}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">{t('reviewCons')}:</h4>
+                    <ul className="list-disc list-inside text-sm text-muted-foreground">
+                      {reviewState.review.cons.map((con, i) => <li key={i}>{con}</li>)}
+                    </ul>
+                  </div>
+                </div>
+              )}
+               {isGeneratingReview && !reviewState && <p className="text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('generatingReviewMessage')}</p>}
+            </CardContent>
+          </Card>
+        )}
          <Card>
           <CardHeader><CardTitle className="flex items-center"><Info className="w-5 h-5 mr-2 text-primary"/>{t('designTipsTitle')}</CardTitle></CardHeader>
           <CardContent className="text-sm space-y-1 text-muted-foreground">
             <p>{t('designTip1')}</p>
             <p>{t('designTip2')}</p>
             <p>{t('designTip3')}</p>
+            <p>{t('designTip4_myPhones')}</p>
           </CardContent>
         </Card>
       </div>

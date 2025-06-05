@@ -5,14 +5,14 @@ import { trendForecasting, type TrendForecastingInput, type TrendForecastingOutp
 import { z } from "zod";
 
 const TrendForecastingFormSchema = z.object({
-  marketData: z.string().min(10, "Market data must be at least 10 characters."),
+  marketData: z.string().min(10, "Market data must be at least 10 characters."), // Keep English for Zod errors, or use a complex i18n setup for Zod
   competitorDevices: z.string().min(10, "Competitor devices information must be at least 10 characters."),
   componentCosts: z.string().min(10, "Component costs information must be at least 10 characters."),
   socialMediaBuzz: z.string().min(10, "Social media buzz must be at least 10 characters."),
 });
 
 export type TrendForecastingFormState = {
-  message: string | null;
+  message: string | null; // These messages will be keys for translation on client
   errors?: {
     marketData?: string[];
     competitorDevices?: string[];
@@ -35,7 +35,7 @@ export async function getTrendForecast(
 
   if (!validatedFields.success) {
     return {
-      message: "Validation failed. Please check your inputs.",
+      message: "Validation failed. Please check your inputs.", // This will be translated on client-side e.g. t('validation_failed')
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
@@ -45,12 +45,12 @@ export async function getTrendForecast(
     const result = await trendForecasting(input);
     
     if (result && result.trends) {
-      return { message: "Trends forecasted successfully.", trends: result.trends };
+      return { message: "Trends forecasted successfully.", trends: result.trends }; // t('trends_success')
     } else {
-      return { message: "AI did not return valid trend data." };
+      return { message: "AI did not return valid trend data." }; // t('trends_no_data')
     }
   } catch (error) {
     console.error("Trend forecasting error:", error);
-    return { message: "An error occurred while forecasting trends. Please try again." };
+    return { message: "An error occurred while forecasting trends. Please try again." }; // t('trends_error')
   }
 }

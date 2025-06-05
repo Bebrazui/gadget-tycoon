@@ -11,18 +11,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, TrendingUp, AlertCircle } from "lucide-react";
 import type { Trend } from "@/lib/types";
+import { useTranslation } from "@/hooks/useTranslation";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const { t } = useTranslation();
   return (
     <Button type="submit" disabled={pending} className="w-full sm:w-auto">
       {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <TrendingUp className="mr-2 h-4 w-4" />}
-      Forecast Trends
+      {t('forecastTrendsButton')}
     </Button>
   );
 }
 
 export default function TrendForecastingPage() {
+  const { t } = useTranslation();
   const initialState: TrendForecastingFormState = { message: null, errors: {}, trends: [] };
   const [state, formAction] = useFormState(getTrendForecast, initialState);
 
@@ -30,20 +33,18 @@ export default function TrendForecastingPage() {
     <div className="space-y-8">
       <Card>
         <CardHeader>
-          <CardTitle>AI Trend Forecasting</CardTitle>
-          <CardDescription>
-            Input current market information to get AI-powered predictions on phone features and technology trends.
-          </CardDescription>
+          <CardTitle>{t('trendsPageTitle')}</CardTitle>
+          <CardDescription>{t('trendsPageDesc')}</CardDescription>
         </CardHeader>
         <form action={formAction}>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="marketData">Market Data</Label>
+                <Label htmlFor="marketData">{t('marketDataLabel')}</Label>
                 <Textarea
                   id="marketData"
                   name="marketData"
-                  placeholder="e.g., Sales figures, consumer surveys, economic indicators..."
+                  placeholder={t('marketDataPlaceholder')}
                   rows={5}
                   aria-describedby="marketData-error"
                 />
@@ -52,11 +53,11 @@ export default function TrendForecastingPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="competitorDevices">Competitor Devices</Label>
+                <Label htmlFor="competitorDevices">{t('competitorDevicesLabel')}</Label>
                 <Textarea
                   id="competitorDevices"
                   name="competitorDevices"
-                  placeholder="e.g., iPhone 15 Pro: A17 chip, ProMotion display. Samsung S23 Ultra: Snapdragon 8 Gen 2, 200MP camera..."
+                  placeholder={t('competitorDevicesPlaceholder')}
                   rows={5}
                   aria-describedby="competitorDevices-error"
                 />
@@ -65,11 +66,11 @@ export default function TrendForecastingPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="componentCosts">Component Costs</Label>
+                <Label htmlFor="componentCosts">{t('componentCostsLabel')}</Label>
                 <Textarea
                   id="componentCosts"
                   name="componentCosts"
-                  placeholder="e.g., OLED panels: $50-$80. Snapdragon 8 Gen 3: $150. Lithium-ion battery cells: $5/kWh..."
+                  placeholder={t('componentCostsPlaceholder')}
                   rows={5}
                   aria-describedby="componentCosts-error"
                 />
@@ -78,11 +79,11 @@ export default function TrendForecastingPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="socialMediaBuzz">Social Media Buzz</Label>
+                <Label htmlFor="socialMediaBuzz">{t('socialMediaBuzzLabel')}</Label>
                 <Textarea
                   id="socialMediaBuzz"
                   name="socialMediaBuzz"
-                  placeholder="e.g., #foldablephones trending. Discussions on AI in cameras. Concerns about battery life..."
+                  placeholder={t('socialMediaBuzzPlaceholder')}
                   rows={5}
                   aria-describedby="socialMediaBuzz-error"
                 />
@@ -101,26 +102,30 @@ export default function TrendForecastingPage() {
       {state.message && !state.trends?.length && (
         <Alert variant={state.errors ? "destructive" : "default"}>
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>{state.errors ? "Error" : "Status"}</AlertTitle>
-          <AlertDescription>{state.message}</AlertDescription>
+          <AlertTitle>{state.errors ? t('errorStatus') : t('statusStatus')}</AlertTitle>
+          <AlertDescription>{
+            state.message === "Validation failed. Please check your inputs." ? t('validation_failed') :
+            state.message === "Trends forecasted successfully." ? t('trends_success') :
+            state.message === "AI did not return valid trend data." ? t('trends_no_data') :
+            state.message === "An error occurred while forecasting trends. Please try again." ? t('trends_error') :
+            state.message
+          }</AlertDescription>
         </Alert>
       )}
 
       {state.trends && state.trends.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Forecasted Trends</CardTitle>
-            <CardDescription>
-              AI analysis of potential market trends based on your input.
-            </CardDescription>
+            <CardTitle>{t('forecastedTrendsTitle')}</CardTitle>
+            <CardDescription>{t('forecastedTrendsDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Feature/Technology</TableHead>
-                  <TableHead className="text-right">Popularity Rank</TableHead>
-                  <TableHead className="text-right">Hot or Not?</TableHead>
+                  <TableHead>{t('featureTechnologyLabel')}</TableHead>
+                  <TableHead className="text-right">{t('popularityRankLabel')}</TableHead>
+                  <TableHead className="text-right">{t('hotOrNotLabel')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

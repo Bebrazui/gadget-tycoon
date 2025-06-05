@@ -15,6 +15,7 @@ import { Award, Lightbulb, Target, Loader2 } from 'lucide-react';
 import type { Brand } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
+import { useTranslation } from '@/hooks/useTranslation';
 
 const brandSchema = z.object({
   name: z.string().min(3, "Brand name must be at least 3 characters").max(50, "Brand name must be at most 50 characters"),
@@ -24,21 +25,34 @@ const brandSchema = z.object({
 
 type BrandFormData = z.infer<typeof brandSchema>;
 
-const marketingStrategies = [
-  { value: "budget_friendly", label: "Budget Friendly - Focus on affordability" },
-  { value: "premium_quality", label: "Premium Quality - Target high-end market" },
-  { value: "innovation_leader", label: "Innovation Leader - Emphasize new tech" },
-  { value: "influencer_marketing", label: "Influencer Marketing - Leverage social media" },
-  { value: "eco_conscious", label: "Eco-Conscious - Highlight sustainability" },
-];
-
 export default function BrandManagementPage() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [currentBrand, setCurrentBrand] = useState<Brand | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const marketingStrategies = [
+    { value: "budget_friendly", label: t('marketingStrategy_budget') || "Budget Friendly - Focus on affordability" },
+    { value: "premium_quality", label: t('marketingStrategy_premium') || "Premium Quality - Target high-end market" },
+    { value: "innovation_leader", label: t('marketingStrategy_innovation') || "Innovation Leader - Emphasize new tech" },
+    { value: "influencer_marketing", label: t('marketingStrategy_influencer') || "Influencer Marketing - Leverage social media" },
+    { value: "eco_conscious", label: t('marketingStrategy_eco') || "Eco-Conscious - Highlight sustainability" },
+  ];
+  
+  // Update schema with translated error messages if needed, or keep them simple for now
+  const translatedBrandSchema = z.object({
+    name: z.string()
+      .min(3, t('validation_min3chars', { field: t('brandNameLabel') }))
+      .max(50, t('validation_max50chars', { field: t('brandNameLabel') })),
+    logoDescription: z.string()
+      .min(10, t('validation_min10chars', { field: t('logoDescriptionLabel') }))
+      .max(200, t('validation_max200chars', { field: t('logoDescriptionLabel') })),
+    marketingStrategy: z.string().min(1, t('validation_required', {field: t('marketingStrategyLabel')})),
+  });
+
+
   const { control, handleSubmit, reset, formState: { errors } } = useForm<BrandFormData>({
-    resolver: zodResolver(brandSchema),
+    resolver: zodResolver(translatedBrandSchema),
     defaultValues: {
       name: '',
       logoDescription: '',
@@ -48,16 +62,13 @@ export default function BrandManagementPage() {
 
   const onSubmit = async (data: BrandFormData) => {
     setIsSubmitting(true);
-    console.log("Brand Details Submitted:", data);
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
     setCurrentBrand(data);
     toast({
-      title: "Brand Updated!",
-      description: `Your brand "${data.name}" has been successfully updated.`,
+      title: t('brandUpdatedTitle'),
+      description: t('brandUpdatedDesc', {name: data.name}),
     });
     setIsSubmitting(false);
-    // reset(data); // Uncomment if you want to keep form filled after save
   };
 
   return (
@@ -66,41 +77,41 @@ export default function BrandManagementPage() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Award className="w-6 h-6 mr-2 text-primary" />
-            Manage Your Brand
+            {t('brandPageTitle')}
           </CardTitle>
-          <CardDescription>Define your brand identity and marketing approach to conquer the market.</CardDescription>
+          <CardDescription>{t('brandPageDesc')}</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Brand Name</Label>
+              <Label htmlFor="name">{t('brandNameLabel')}</Label>
               <Controller
                 name="name"
                 control={control}
-                render={({ field }) => <Input id="name" placeholder="e.g., NovaTech, Apex Gadgets" {...field} />}
+                render={({ field }) => <Input id="name" placeholder={t('brandNamePlaceholder')} {...field} />}
               />
               {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="logoDescription">Logo Description / Concept</Label>
+              <Label htmlFor="logoDescription">{t('logoDescriptionLabel')}</Label>
               <Controller
                 name="logoDescription"
                 control={control}
-                render={({ field }) => <Textarea id="logoDescription" placeholder="Describe your logo. e.g., Minimalist geometric shape, vibrant abstract design..." rows={4} {...field} />}
+                render={({ field }) => <Textarea id="logoDescription" placeholder={t('logoDescriptionPlaceholder')} rows={4} {...field} />}
               />
               {errors.logoDescription && <p className="text-sm text-destructive">{errors.logoDescription.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="marketingStrategy">Marketing Strategy</Label>
+              <Label htmlFor="marketingStrategy">{t('marketingStrategyLabel')}</Label>
               <Controller
                 name="marketingStrategy"
                 control={control}
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <SelectTrigger id="marketingStrategy">
-                      <SelectValue placeholder="Select a strategy" />
+                      <SelectValue placeholder={t('selectMarketingStrategy')} />
                     </SelectTrigger>
                     <SelectContent>
                       {marketingStrategies.map(strategy => (
@@ -118,7 +129,7 @@ export default function BrandManagementPage() {
           <CardFooter className="flex justify-end">
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Brand Details
+              {t('saveBrandButton')}
             </Button>
           </CardFooter>
         </form>
@@ -129,7 +140,7 @@ export default function BrandManagementPage() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Lightbulb className="w-5 h-5 mr-2 text-primary" />
-              Current Brand Identity
+              {t('currentBrandIdentityTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -147,16 +158,16 @@ export default function BrandManagementPage() {
                   />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Logo Concept:</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('logoConceptLabel')}:</p>
                   <p className="text-sm">{currentBrand.logoDescription}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Marketing Strategy:</p>
-                  <p className="text-sm">{marketingStrategies.find(s => s.value === currentBrand.marketingStrategy)?.label || 'Not set'}</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('marketingStrategyLabel')}:</p>
+                  <p className="text-sm">{marketingStrategies.find(s => s.value === currentBrand.marketingStrategy)?.label || t('notSet')}</p>
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No brand details saved yet. Fill out the form to define your brand.</p>
+              <p className="text-sm text-muted-foreground">{t('noBrandDetailsSaved')}</p>
             )}
           </CardContent>
         </Card>
@@ -164,13 +175,13 @@ export default function BrandManagementPage() {
           <CardHeader>
             <CardTitle className="flex items-center">
                 <Target className="w-5 h-5 mr-2 text-primary" />
-                Branding Tips
+                {t('brandingTipsTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p>A strong brand resonates with your target audience.</p>
-            <p>Your logo should be memorable and reflect your brand's values.</p>
-            <p>Choose a marketing strategy that aligns with your product and financial goals.</p>
+            <p>{t('brandingTip1')}</p>
+            <p>{t('brandingTip2')}</p>
+            <p>{t('brandingTip3')}</p>
           </CardContent>
         </Card>
       </div>

@@ -22,6 +22,8 @@ export interface PhoneComponent {
 }
 
 export interface PhoneDesign {
+  id: string; // Unique identifier for the phone
+  name: string; // User-defined name for the phone
   processor: string;
   displayType: string;
   ram: number; // in GB
@@ -33,7 +35,6 @@ export interface PhoneDesign {
   height: number; // in mm
   width: number; // in mm
   thickness: number; // in mm
-  // New characteristics
   screenSize: number; // in inches
   refreshRate: string;
   waterResistance: string;
@@ -41,6 +42,9 @@ export interface PhoneDesign {
   nfcSupport: boolean;
   operatingSystem: string;
   frontCameraResolution: number; // in MP
+  estimatedCost: number; // Store calculated cost
+  review?: string; // AI-generated review
+  imageUrl?: string; // Placeholder for a generated image if needed
 }
 
 export interface Brand {

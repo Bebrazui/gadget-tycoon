@@ -17,6 +17,7 @@ import {
   Banknote,
   Brain,
   Github,
+  ListChecks,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -28,6 +29,7 @@ export function SidebarItems() {
   const navItems = [
     { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
     { href: '/design', labelKey: 'designPhone', icon: Smartphone },
+    { href: '/my-phones', labelKey: 'myPhones', icon: ListChecks },
     { href: '/brand', labelKey: 'brand', icon: Award },
     { href: '/market', labelKey: 'marketAnalysis', icon: LineChart },
     { href: '/financials', labelKey: 'financials', icon: Banknote },

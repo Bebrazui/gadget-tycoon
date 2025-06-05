@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BarChart, LineChart as LucideLineChart, TrendingDown, TrendingUp, Users } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, Line, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Legend as RechartsLegend, LineChart } from "recharts";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const salesData = [
   { month: "Jan", sales: Math.floor(Math.random() * 5000) + 1000 },
@@ -25,19 +26,25 @@ const competitorData = [
   { id: 4, name: "PixelPro Max", features: "Top Tier Processor, Stock Android", price: 999, sentiment: "Very Positive" },
 ];
 
-const chartConfig = {
-  sales: {
-    label: "Sales ($)",
-    color: "hsl(var(--primary))",
-  },
-};
-
 export default function MarketAnalysisPage() {
+  const { t } = useTranslation();
+
+  const chartConfig = {
+    sales: {
+      label: t('salesLabel') || "Sales ($)",
+      color: "hsl(var(--primary))",
+    },
+  };
+  
+  // Ensure months are translated if needed, or keep as is if they are keys for data
+  const translatedSalesData = salesData.map(d => ({...d, month: t(`month_${d.month.toLowerCase()}`, {}) || d.month }));
+
+
   return (
     <div className="space-y-8">
       <SectionTitle 
-        title="Market Analysis"
-        description="Understand market dynamics, sales trends, and competitor strategies."
+        title={t('marketPageTitle')}
+        description={t('marketPageDesc')}
       />
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -45,13 +52,13 @@ export default function MarketAnalysisPage() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <LucideLineChart className="w-5 h-5 mr-2 text-primary" />
-              Sales Trends (Simulated)
+              {t('salesTrendsTitle')}
             </CardTitle>
-            <CardDescription>Monthly sales performance overview.</CardDescription>
+            <CardDescription>{t('salesTrendsDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[300px] w-full">
-              <LineChart data={salesData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+              <LineChart data={translatedSalesData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
                 <YAxis stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} tickFormatter={(value) => `$${value / 1000}k`} />
@@ -59,7 +66,7 @@ export default function MarketAnalysisPage() {
                   cursor={false}
                   content={<ChartTooltipContent indicator="line" />}
                 />
-                <Line type="monotone" dataKey="sales" stroke="var(--color-sales)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="sales" stroke="var(--color-sales)" strokeWidth={2} dot={false} name={chartConfig.sales.label} />
                 <RechartsLegend content={<ChartLegendContent />} />
               </LineChart>
             </ChartContainer>
@@ -71,18 +78,18 @@ export default function MarketAnalysisPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center">
                         <Users className="w-5 h-5 mr-2 text-primary" />
-                        Consumer Sentiment
+                        {t('consumerSentimentTitle')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     <div className="flex justify-between items-center">
-                        <span>Feature Demand: AI Photography</span> <TrendingUp className="w-5 h-5 text-green-500"/>
+                        <span>{t('featureDemandAIPhoto')}</span> <TrendingUp className="w-5 h-5 text-green-500"/>
                     </div>
                     <div className="flex justify-between items-center">
-                        <span>Price Sensitivity: High</span> <TrendingDown className="w-5 h-5 text-red-500"/>
+                        <span>{t('priceSensitivityHigh')}</span> <TrendingDown className="w-5 h-5 text-red-500"/>
                     </div>
                      <div className="flex justify-between items-center">
-                        <span>Brand Loyalty: Moderate</span> <LucideLineChart className="w-5 h-5 text-yellow-500"/>
+                        <span>{t('brandLoyaltyModerate')}</span> <LucideLineChart className="w-5 h-5 text-yellow-500"/>
                     </div>
                 </CardContent>
             </Card>
@@ -90,13 +97,13 @@ export default function MarketAnalysisPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center">
                         <BarChart className="w-5 h-5 mr-2 text-primary" />
-                        Market Segments
+                        {t('marketSegmentsTitle')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
-                    <p>Budget: 40%</p>
-                    <p>Mid-range: 35%</p>
-                    <p>Premium: 25%</p>
+                    <p>{t('segmentBudget')}</p>
+                    <p>{t('segmentMidRange')}</p>
+                    <p>{t('segmentPremium')}</p>
                 </CardContent>
             </Card>
         </div>
@@ -104,17 +111,17 @@ export default function MarketAnalysisPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Competitor Landscape (Simulated)</CardTitle>
-          <CardDescription>Key competitors and their market positioning.</CardDescription>
+          <CardTitle>{t('competitorLandscapeTitle')}</CardTitle>
+          <CardDescription>{t('competitorLandscapeDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Device Name</TableHead>
-                <TableHead>Key Features</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead>Public Sentiment</TableHead>
+                <TableHead>{t('deviceNameLabel')}</TableHead>
+                <TableHead>{t('keyFeaturesLabel')}</TableHead>
+                <TableHead className="text-right">{t('priceLabel')}</TableHead>
+                <TableHead>{t('publicSentimentLabel')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -139,7 +146,7 @@ export default function MarketAnalysisPage() {
           </Table>
         </CardContent>
       </Card>
-      <ComingSoon featureName="Advanced Market Simulation tools" />
+      <ComingSoon featureName={t('advancedToolsComingSoon')} />
     </div>
   );
 }

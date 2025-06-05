@@ -8,11 +8,11 @@ import { LogOut, Languages } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Language } from '@/context/LanguageContext';
-import { Label } from '@/components/ui/label';
 
 const navItemTitleKeys: Record<string, string> = {
   '/': 'pageTitleDashboard',
   '/design': 'pageTitleDesign',
+  '/my-phones': 'pageTitleMyPhones',
   '/brand': 'pageTitleBrand',
   '/market': 'pageTitleMarket',
   '/financials': 'pageTitleFinancials',
@@ -23,7 +23,7 @@ export function PageHeader() {
   const pathname = usePathname();
   const { t, language, setLanguage } = useTranslation();
   
-  const titleKey = navItemTitleKeys[pathname] || 'pageTitleDashboard'; // Default to dashboard title key
+  const titleKey = navItemTitleKeys[pathname] || 'pageTitleDashboard';
   const title = t(titleKey);
 
   const handleLanguageChange = (value: string) => {

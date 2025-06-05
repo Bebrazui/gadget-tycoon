@@ -3,7 +3,7 @@
 
 import { StatCard } from "@/components/shared/StatCard";
 import { SectionTitle } from "@/components/shared/SectionTitle";
-import { DollarSign, Smartphone, Users, TrendingUp } from "lucide-react";
+import { DollarSign, Smartphone, Users, TrendingUp, HandCoins } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -21,9 +21,9 @@ export default function DashboardPage() {
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title={t('statTotalFunds')} value="$1,000,000" icon={DollarSign} description={t('statDescFunds')} />
-        <StatCard title={t('statPhonesSold')} value="0" icon={Smartphone} description={t('statDescPhonesSold')} />
-        <StatCard title={t('statBrandReputation')} value={t('statBrandReputation')} icon={Users} description={t('statDescBrandRep')} />
+        <StatCard title={t('statTotalFunds')} value="$50,000" icon={DollarSign} description={t('statDescFunds')} />
+        <StatCard title={t('statPhonesSold')} value="0" icon={HandCoins} description={t('statDescPhonesSold')} />
+        <StatCard title={t('statBrandReputation')} value={t('statBrandReputationValue')} icon={Users} description={t('statDescBrandRep')} />
         <StatCard title={t('statMarketTrend')} value="AI Cameras" icon={TrendingUp} description={t('statDescMarketTrend')} />
       </div>
 
@@ -37,13 +37,16 @@ export default function DashboardPage() {
             <Button asChild variant="outline" size="lg">
               <Link href="/design">{t('btnDesignNewPhone')}</Link>
             </Button>
+             <Button asChild variant="outline" size="lg">
+              <Link href="/my-phones">{t('btnMyPhones')}</Link>
+            </Button>
             <Button asChild variant="outline" size="lg">
               <Link href="/brand">{t('btnManageBrand')}</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href="/market">{t('btnAnalyzeMarket')}</Link>
             </Button>
-            <Button asChild variant="default" size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Button asChild variant="default" size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground sm:col-span-2">
               <Link href="/trends">{t('btnForecastTrends')}</Link>
             </Button>
           </CardContent>
@@ -57,7 +60,7 @@ export default function DashboardPage() {
           <CardContent>
             <Image 
               src="https://placehold.co/600x400.png" 
-              alt="Phone Blueprint" 
+              alt={t('phoneBlueprintAlt')}
               width={600} 
               height={400}
               className="rounded-lg object-cover aspect-video"
