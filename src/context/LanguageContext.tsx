@@ -9,11 +9,11 @@ export type Language = 'en' | 'ru';
 interface LanguageContextType {
   language: Language;
   setLanguage: Dispatch<SetStateAction<Language>>;
-  isLanguageInitialized: boolean; // Флаг, что клиент смонтирован и язык пытались загрузить
+  isLanguageInitialized: boolean; 
 }
 
 const defaultState: LanguageContextType = {
-  language: 'en', // Всегда начинаем с 'en' для SSR и начальной гидратации
+  language: 'en', 
   setLanguage: () => {},
   isLanguageInitialized: false,
 };
@@ -27,17 +27,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [isLanguageInitialized, setIsLanguageInitialized] = useState(false);
 
   useEffect(() => {
-    // Этот эффект запускается только на клиенте после первого монтирования
-    setIsLanguageInitialized(true); // Отмечаем, что клиент смонтирован
-
+    // This effect runs only on the client after the first mount
     const storedLanguage = localStorage.getItem(LOCAL_STORAGE_LANGUAGE_KEY) as Language | null;
     if (storedLanguage && (storedLanguage === 'en' || storedLanguage === 'ru')) {
-      // Устанавливаем язык из localStorage, если он валиден
-      // Это вызовет ре-рендер, но уже после того, как isLanguageInitialized станет true
       setLanguageState(storedLanguage);
+      document.documentElement.lang = storedLanguage;
+    } else {
+      // If no valid language in localStorage, 'en' remains, set it on <html>
+      document.documentElement.lang = 'en';
     }
-    // Если в localStorage ничего нет или язык невалиден, останется 'en'
-  }, []); // Пустой массив зависимостей гарантирует запуск только один раз после монтирования
+    setIsLanguageInitialized(true); 
+  }, []); 
 
   const setLanguage: Dispatch<SetStateAction<Language>> = (newLanguageAction) => {
     setLanguageState(prevLanguage => {
@@ -45,8 +45,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         ? (newLanguageAction as (prevState: Language) => Language)(prevLanguage)
         : newLanguageAction;
 
-      if (isLanguageInitialized) { // Обновляем localStorage и document.lang только если клиент смонтирован
-        if (newLanguage === 'en' || newLanguage === 'ru') {
+      if (newLanguage === 'en' || newLanguage === 'ru') {
+        // We only update localStorage and document.lang if on client and initialized
+        // isLanguageInitialized check ensures this runs after the initial effect
+        if (typeof window !== 'undefined' && isLanguageInitialized) { 
           localStorage.setItem(LOCAL_STORAGE_LANGUAGE_KEY, newLanguage);
           document.documentElement.lang = newLanguage;
         }
@@ -55,13 +57,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     });
   };
   
+  // This effect handles subsequent language changes after initialization
   useEffect(() => {
-    // Этот эффект синхронизирует document.documentElement.lang при изменении языка,
-    // но только после инициализации на клиенте.
-    if (isLanguageInitialized) {
+    if (isLanguageInitialized && typeof window !== 'undefined') {
         document.documentElement.lang = language;
     }
-  }, [language, isLanguageInitialized])
+  }, [language, isLanguageInitialized]);
 
 
   return (

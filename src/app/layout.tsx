@@ -20,15 +20,19 @@ export default function RootLayout({
   return (
     <LanguageProvider>
       <SettingsProvider>
-        {/* Атрибут lang будет установлен LanguageProvider через useEffect */}
+        {/* lang attribute will be set by LanguageProvider after client-side initialization */}
         <html className="dark" suppressHydrationWarning={true}>
           <head suppressHydrationWarning={true}>
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
             <link rel="manifest" href="/manifest.json" />
-            {/* <link rel="icon" href="/favicon.ico" sizes="any" /> */}
-            {/* <link rel="apple-touch-icon" href="/apple-touch-icon.png" /> */}
+            {/* 
+              You will need to create these icon files and place them in /public/images/icons/
+              or update the paths in /public/manifest.json 
+            */}
+            {/* <link rel="icon" href="/images/icons/favicon.ico" sizes="any" /> */}
+            {/* <link rel="apple-touch-icon" href="/images/icons/apple-touch-icon.png" /> */}
           </head>
           <body className="font-body antialiased" suppressHydrationWarning={true}>
             <AppLayout>{children}</AppLayout>
