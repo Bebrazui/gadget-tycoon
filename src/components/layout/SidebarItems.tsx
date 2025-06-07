@@ -18,7 +18,8 @@ import {
   Brain,
   Github,
   ListChecks,
-  Briefcase, // Added for Client Contracts
+  Briefcase,
+  FlaskConical, // Added for R&D
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -32,6 +33,7 @@ export function SidebarItems() {
     { href: '/design', labelKey: 'designPhone', icon: Smartphone },
     { href: '/my-phones', labelKey: 'myPhones', icon: ListChecks },
     { href: '/procurement', labelKey: 'clientContracts', icon: Briefcase },
+    { href: '/rd', labelKey: 'rd', icon: FlaskConical },
     { href: '/brand', labelKey: 'brand', icon: Award },
     { href: '/market', labelKey: 'marketAnalysis', icon: LineChart },
     { href: '/financials', labelKey: 'financials', icon: Banknote },

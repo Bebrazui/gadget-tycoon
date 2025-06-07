@@ -9,6 +9,20 @@ export interface PhoneComponentOption {
   value: string;
   label: string; // This will often be a translation key
   cost: number;
+  antutuScore?: number; // For processors
+  coreCount?: number; // For processors
+  clockSpeed?: number; // For processors
+}
+
+export interface CustomProcessor {
+  id: string;
+  name: string;
+  antutuScore: number;
+  coreCount: number;
+  clockSpeed: number; // in GHz
+  manufacturingCost: number; // Cost to use this processor in a phone
+  researchCost: number; // One-time cost to unlock/develop
+  type: 'custom_processor'; // To distinguish from predefined ones
 }
 
 export interface PhoneComponent {
@@ -24,7 +38,7 @@ export interface PhoneComponent {
 export interface PhoneDesign {
   id:string; // Unique identifier for the phone
   name: string; // User-defined name for the phone
-  processor: string;
+  processor: string; // Can be a value from PROCESSOR_OPTIONS or custom_proc_<id>
   displayType: string;
   ram: number; // in GB
   storage: number; // in GB
@@ -43,21 +57,21 @@ export interface PhoneDesign {
   operatingSystem: string;
   frontCameraResolution: number; // in MP
 
-  hasOIS: boolean; 
-  ultrawideCameraMP: number; 
-  telephotoCameraMP: number; 
-  telephotoZoom: string; 
-  videoResolution: string; 
-  
-  unitManufacturingCost: number; 
-  productionQuantity: number; 
-  currentStock: number; 
+  hasOIS: boolean;
+  ultrawideCameraMP: number;
+  telephotoCameraMP: number;
+  telephotoZoom: string;
+  videoResolution: string;
 
-  review?: string; 
+  unitManufacturingCost: number;
+  productionQuantity: number;
+  currentStock: number;
+
+  review?: string;
   imageUrl?: string;
 
-  salePrice: number; 
-  quantityListedForSale: number; 
+  salePrice: number;
+  quantityListedForSale: number;
 }
 
 export interface Brand {
@@ -68,16 +82,16 @@ export interface Brand {
 
 export interface Transaction {
   id: string;
-  date: string; 
-  description: string; 
-  amount: number; 
+  date: string;
+  description: string; // Can be a translation key or a template like "transactionXYZ{{param:value}}"
+  amount: number;
   type: 'income' | 'expense';
 }
 
 export interface GameStats {
   totalFunds: number;
-  phonesSold: number; 
-  brandReputation: number; 
+  phonesSold: number;
+  brandReputation: number;
   level: number;
   xp: number;
 }
@@ -120,18 +134,18 @@ export interface ClientContract {
 
 export const PROCESSOR_OPTIONS: PhoneComponent = {
   id: 'processor', name: 'processorLabel', type: 'processor', options: [
-    { value: 'budget_quad_core', label: 'processor_budget_quad', cost: 25 },
-    { value: 'snapdragon_680', label: 'Snapdragon 680', cost: 50 },
-    { value: 'helio_g99', label: 'Helio G99', cost: 45 },
-    { value: 'dimensity_700', label: 'Dimensity 700', cost: 60 },
-    { value: 'snapdragon_7_gen_1', label: 'processor_snapdragon_7_gen_1', cost: 90 },
-    { value: 'dimensity_1080', label: 'processor_dimensity_1080', cost: 85 },
-    { value: 'snapdragon_8_gen_1', label: 'Snapdragon 8 Gen 1', cost: 120 },
-    { value: 'bionic_a15', label: 'Bionic A15', cost: 150 },
-    { value: 'dimensity_9000_plus', label: 'processor_dimensity_9000_plus', cost: 140 },
-    { value: 'snapdragon_8_gen_2', label: 'processor_snapdragon_8_gen_2', cost: 180 },
-    { value: 'bionic_a17_pro', label: 'Bionic A17 Pro', cost: 200 },
-    { value: 'snapdragon_8_gen_3', label: 'processor_snapdragon_8_gen_3', cost: 220 },
+    { value: 'budget_quad_core', label: 'processor_budget_quad', cost: 25, antutuScore: 80000, coreCount: 4, clockSpeed: 1.8 },
+    { value: 'snapdragon_680', label: 'Snapdragon 680', cost: 50, antutuScore: 280000, coreCount: 8, clockSpeed: 2.4 },
+    { value: 'helio_g99', label: 'Helio G99', cost: 45, antutuScore: 350000, coreCount: 8, clockSpeed: 2.2 },
+    { value: 'dimensity_700', label: 'Dimensity 700', cost: 60, antutuScore: 380000, coreCount: 8, clockSpeed: 2.2 },
+    { value: 'snapdragon_7_gen_1', label: 'processor_snapdragon_7_gen_1', cost: 90, antutuScore: 550000, coreCount: 8, clockSpeed: 2.4 },
+    { value: 'dimensity_1080', label: 'processor_dimensity_1080', cost: 85, antutuScore: 520000, coreCount: 8, clockSpeed: 2.6 },
+    { value: 'snapdragon_8_gen_1', label: 'Snapdragon 8 Gen 1', cost: 120, antutuScore: 980000, coreCount: 8, clockSpeed: 3.0 },
+    { value: 'bionic_a15', label: 'Bionic A15', cost: 150, antutuScore: 1100000, coreCount: 6, clockSpeed: 3.2 },
+    { value: 'dimensity_9000_plus', label: 'processor_dimensity_9000_plus', cost: 140, antutuScore: 1200000, coreCount: 8, clockSpeed: 3.2 },
+    { value: 'snapdragon_8_gen_2', label: 'processor_snapdragon_8_gen_2', cost: 180, antutuScore: 1500000, coreCount: 8, clockSpeed: 3.2 },
+    { value: 'bionic_a17_pro', label: 'Bionic A17 Pro', cost: 200, antutuScore: 1600000, coreCount: 6, clockSpeed: 3.7 },
+    { value: 'snapdragon_8_gen_3', label: 'processor_snapdragon_8_gen_3', cost: 220, antutuScore: 2000000, coreCount: 8, clockSpeed: 3.3 },
   ]
 };
 
@@ -168,12 +182,12 @@ export const COLOR_OPTIONS = [
 
 export const RAM_COST_PER_GB = 5;
 export const STORAGE_COST_PER_GB = 0.2;
-export const CAMERA_COST_PER_MP = 0.5; 
+export const CAMERA_COST_PER_MP = 0.5;
 export const FRONT_CAMERA_COST_PER_MP = 0.6;
 export const ULTRAWIDE_COST_PER_MP = 0.4;
 export const TELEPHOTO_COST_PER_MP = 0.7;
 export const BATTERY_COST_PER_100MAH = 1;
-export const SCREEN_SIZE_COST_FACTOR = 15; 
+export const SCREEN_SIZE_COST_FACTOR = 15;
 
 export const REFRESH_RATE_OPTIONS: PhoneComponent = {
   id: 'refreshRate', name: 'refreshRateLabel', type: 'refreshRate', options: [
@@ -202,8 +216,8 @@ export const SIM_SLOT_OPTIONS: PhoneComponent = {
   ]
 };
 
-export const NFC_COST = 5; 
-export const OIS_COST = 15; 
+export const NFC_COST = 5;
+export const OIS_COST = 15;
 
 export const OPERATING_SYSTEM_OPTIONS: PhoneComponent = {
   id: 'operatingSystem', name: 'osLabel', type: 'operatingSystem', options: [
@@ -241,29 +255,27 @@ export const LOCAL_STORAGE_BRAND_KEY = 'gadgetTycoon_brand';
 export const LOCAL_STORAGE_AVAILABLE_CONTRACTS_KEY = 'gadgetTycoon_availableContracts';
 export const LOCAL_STORAGE_ACCEPTED_CONTRACTS_KEY = 'gadgetTycoon_acceptedContracts';
 export const LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY = 'gadgetTycoon_lastMarketSimulation';
+export const LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY = 'gadgetTycoon_customProcessors';
 
 
-export const SALE_MARKUP_FACTOR = 1.5; 
-export const INITIAL_FUNDS = 2000; // Reduced for balance
-export const BASE_DESIGN_ASSEMBLY_COST = 10; // Reduced for balance
+export const SALE_MARKUP_FACTOR = 1.5;
+export const INITIAL_FUNDS = 2000;
+export const BASE_DESIGN_ASSEMBLY_COST = 10;
 
 // Market Simulation Parameters
 export const MARKET_SIMULATION_INTERVAL = 60000; // 60 seconds
-export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 2; // Max units of a single phone model that can be sold in one interval
-export const MARKET_SALE_CHANCE_PER_UNIT = 0.10; // 10% chance per listed unit to be considered for sale in an interval
-export const MARKET_CATCH_UP_THRESHOLD_MINUTES = 5; // If offline for more than 5 mins, do catch-up
-export const MARKET_MAX_CATCH_UP_INTERVALS = 10; // Simulate max 10 intervals for catch-up
+export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 2;
+export const MARKET_SALE_CHANCE_PER_UNIT = 0.10;
+export const MARKET_CATCH_UP_THRESHOLD_MINUTES = 5;
+export const MARKET_MAX_CATCH_UP_INTERVALS = 10;
 
 export const MAX_AVAILABLE_CONTRACTS = 3;
 
 // Leveling System
 export const XP_FOR_DESIGNING_PHONE = 50;
 export const XP_PER_PHONE_SOLD = 2;
+export const XP_FOR_RESEARCHING_COMPONENT = 30; // XP for researching a custom component
 
 export function calculateXpToNextLevel(level: number): number {
-  // Example: 100, 200, 300, 400, 500...
-  // More complex: Math.floor(100 * Math.pow(level, 1.5));
   return level * 100;
 }
-
-    
