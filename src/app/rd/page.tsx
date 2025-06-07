@@ -121,7 +121,7 @@ export default function RDPage() {
     useEffect(() => {
         const costs = calculateAlgorithmicProcessorCosts(watchedProcFormValues);
         setEstimatedProcessorCosts(costs);
-    }, [watchedProcFormValues]);
+    }, [watchedProcFormValues.antutuScore, watchedProcFormValues.coreCount, watchedProcFormValues.clockSpeed]);
 
 
     // Display Form
@@ -135,7 +135,7 @@ export default function RDPage() {
     useEffect(() => {
         const costs = calculateAlgorithmicDisplayCosts(watchedDisplayFormValues);
         setEstimatedDisplayCosts(costs);
-    }, [watchedDisplayFormValues]);
+    }, [watchedDisplayFormValues.name, watchedDisplayFormValues.resolutionCategory, watchedDisplayFormValues.technology, watchedDisplayFormValues.refreshRate]);
 
 
     const loadComponents = useCallback(() => {
@@ -256,7 +256,8 @@ export default function RDPage() {
         window.dispatchEvent(new CustomEvent('transactionsChanged'));
 
         toast({ title: t('displayResearchedSuccessTitle'), description: t('displayResearchedSuccessDesc', { name: data.name }) });
-        resetDisplayForm(); setEstimatedDisplayCosts(null);
+        resetDisplayForm({ name: '', resolutionCategory: DISPLAY_RESOLUTION_CATEGORIES_RD[1]?.value || '', technology: DISPLAY_TECHNOLOGIES_RD[1]?.value || '', refreshRate: DISPLAY_REFRESH_RATES_RD[1]?.value || 90 });
+        setEstimatedDisplayCosts(null);
         setIsResearchingDisplay(false);
     };
 
@@ -280,7 +281,7 @@ export default function RDPage() {
              <Alert>
                 <FlaskConical className="h-4 w-4" />
                 <AlertDescription>
-                  {settings.useOnlineFeatures && activeTab === "displays" ? t('onlineModeActiveRD') : t('offlineModeActiveRD')}
+                  {t('rdCostsCalculatedAutomatically')}
                 </AlertDescription>
               </Alert>
 
@@ -365,7 +366,7 @@ export default function RDPage() {
                                 {t('developNewDisplayTitle')}
                             </CardTitle>
                              <CardDescription>
-                                {settings.useOnlineFeatures ? t('displayCostsEstimatedByAI') : t('displayCostsCalculatedOffline')}
+                               {t('displayCostsCalculatedAutomatically')}
                              </CardDescription>
                         </CardHeader>
                         <form onSubmit={handleDisplaySubmit(onDisplayResearchSubmit)}>
