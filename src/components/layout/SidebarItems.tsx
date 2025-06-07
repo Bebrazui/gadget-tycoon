@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import * as React from 'react'; // Import React for useMemo
 import {
   SidebarHeader,
   SidebarMenu,
@@ -20,7 +21,7 @@ import {
   ListChecks,
   Briefcase,
   FlaskConical, 
-  Settings, // Added for Settings
+  Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -29,18 +30,32 @@ export function SidebarItems() {
   const pathname = usePathname();
   const { t } = useTranslation();
 
-  const navItems = [
-    { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
-    { href: '/design', labelKey: 'designPhone', icon: Smartphone },
-    { href: '/my-phones', labelKey: 'myPhones', icon: ListChecks },
-    { href: '/procurement', labelKey: 'clientContracts', icon: Briefcase },
-    { href: '/rd', labelKey: 'rd', icon: FlaskConical },
-    { href: '/brand', labelKey: 'brand', icon: Award },
-    { href: '/market', labelKey: 'marketAnalysis', icon: LineChart },
-    { href: '/financials', labelKey: 'financials', icon: Banknote },
-    { href: '/trends', labelKey: 'trendForecasting', icon: Brain },
-    { href: '/settings', labelKey: 'settings', icon: Settings },
-  ];
+  // Memoize the navItems array along with pre-calculated labels and tooltip configurations.
+  // This array will only recompute if `t` (i.e., the language) changes.
+  const memoizedNavItems = React.useMemo(() => {
+    const itemsDefinition = [
+      { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
+      { href: '/design', labelKey: 'designPhone', icon: Smartphone },
+      { href: '/my-phones', labelKey: 'myPhones', icon: ListChecks },
+      { href: '/procurement', labelKey: 'clientContracts', icon: Briefcase },
+      { href: '/rd', labelKey: 'rd', icon: FlaskConical },
+      { href: '/brand', labelKey: 'brand', icon: Award },
+      { href: '/market', labelKey: 'marketAnalysis', icon: LineChart },
+      { href: '/financials', labelKey: 'financials', icon: Banknote },
+      { href: '/trends', labelKey: 'trendForecasting', icon: Brain },
+      { href: '/settings', labelKey: 'settings', icon: Settings },
+    ];
+
+    return itemsDefinition.map(itemDef => ({
+      ...itemDef,
+      label: t(itemDef.labelKey), // Pre-translate label for the span
+      tooltipConfig: { // Create a stable tooltip config object for each item
+        children: t(itemDef.labelKey), // Tooltip text
+        side: 'right' as const,
+        className: "bg-card text-card-foreground"
+      }
+    }));
+  }, [t]);
 
   return (
     <>
@@ -56,16 +71,16 @@ export function SidebarItems() {
         </Link>
       </SidebarHeader>
       <SidebarMenu className="flex-1 p-2">
-        {navItems.map((item) => (
+        {memoizedNavItems.map((item) => (
           <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
               asChild
               isActive={pathname === item.href}
-              tooltip={{ children: t(item.labelKey), side: 'right', className: "bg-card text-card-foreground" }}
+              tooltip={item.tooltipConfig} // Pass the stable tooltipConfig object
             >
               <Link href={item.href}>
                 <item.icon />
-                <span>{t(item.labelKey)}</span>
+                <span>{item.label}</span> {/* Use the pre-translated label */}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
