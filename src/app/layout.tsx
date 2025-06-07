@@ -9,7 +9,7 @@ import { SettingsProvider } from '@/context/SettingsContext';
 export const metadata: Metadata = {
   title: 'Gadget Tycoon',
   description: 'Create and sell your own gadgets!',
-  manifest: '/manifest.json', // Added manifest link
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -18,17 +18,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // The LanguageProvider will set the lang attribute on html tag via useEffect
-    // Initial lang can be 'en' to prevent hydration mismatch if server default is different
-    // suppressHydrationWarning is kept for safety against browser extensions
     <LanguageProvider>
       <SettingsProvider>
-        <html lang="en" className="dark" suppressHydrationWarning={true}>
+        {/* Атрибут lang будет установлен LanguageProvider через useEffect */}
+        <html className="dark" suppressHydrationWarning={true}>
           <head suppressHydrationWarning={true}>
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-            {/* Standard favicon links - you would need to add these files to /public */}
+            <link rel="manifest" href="/manifest.json" />
             {/* <link rel="icon" href="/favicon.ico" sizes="any" /> */}
             {/* <link rel="apple-touch-icon" href="/apple-touch-icon.png" /> */}
           </head>

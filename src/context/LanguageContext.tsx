@@ -9,13 +9,13 @@ export type Language = 'en' | 'ru';
 interface LanguageContextType {
   language: Language;
   setLanguage: Dispatch<SetStateAction<Language>>;
-  isLanguageInitialized: boolean; // New flag
+  isLanguageInitialized: boolean; // Флаг, что клиент смонтирован и язык пытались загрузить
 }
 
 const defaultState: LanguageContextType = {
-  language: 'en',
+  language: 'en', // Всегда начинаем с 'en' для SSR и начальной гидратации
   setLanguage: () => {},
-  isLanguageInitialized: false, // Default to false
+  isLanguageInitialized: false,
 };
 
 export const LanguageContext = createContext<LanguageContextType>(defaultState);
@@ -23,30 +23,46 @@ export const LanguageContext = createContext<LanguageContextType>(defaultState);
 const LOCAL_STORAGE_LANGUAGE_KEY = 'gadget-tycoon-lang';
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>('en'); // Default to 'en'
-  const [isLanguageInitialized, setIsLanguageInitialized] = useState(false); // New state
+  const [language, setLanguageState] = useState<Language>('en');
+  const [isLanguageInitialized, setIsLanguageInitialized] = useState(false);
 
   useEffect(() => {
-    // This effect runs only on the client after hydration
+    // Этот эффект запускается только на клиенте после первого монтирования
+    setIsLanguageInitialized(true); // Отмечаем, что клиент смонтирован
+
     const storedLanguage = localStorage.getItem(LOCAL_STORAGE_LANGUAGE_KEY) as Language | null;
     if (storedLanguage && (storedLanguage === 'en' || storedLanguage === 'ru')) {
-      setLanguage(storedLanguage);
-    } else {
-      // Set default if nothing valid is stored, or to ensure state sync if it was 'en' already
-      // localStorage.setItem(LOCAL_STORAGE_LANGUAGE_KEY, 'en'); // Will be set by the other useEffect
+      // Устанавливаем язык из localStorage, если он валиден
+      // Это вызовет ре-рендер, но уже после того, как isLanguageInitialized станет true
+      setLanguageState(storedLanguage);
     }
-    setIsLanguageInitialized(true); // Signal that client-side language loading attempt is complete
-  }, []);
+    // Если в localStorage ничего нет или язык невалиден, останется 'en'
+  }, []); // Пустой массив зависимостей гарантирует запуск только один раз после монтирования
 
-  useEffect(() => {
-    // This effect runs when language changes or after initialization
-    if (isLanguageInitialized) { // Only update localStorage and document.lang if initialized
-        if (language === 'en' || language === 'ru') { // ensure valid before setting
-            localStorage.setItem(LOCAL_STORAGE_LANGUAGE_KEY, language);
-            document.documentElement.lang = language;
+  const setLanguage: Dispatch<SetStateAction<Language>> = (newLanguageAction) => {
+    setLanguageState(prevLanguage => {
+      const newLanguage = typeof newLanguageAction === 'function'
+        ? (newLanguageAction as (prevState: Language) => Language)(prevLanguage)
+        : newLanguageAction;
+
+      if (isLanguageInitialized) { // Обновляем localStorage и document.lang только если клиент смонтирован
+        if (newLanguage === 'en' || newLanguage === 'ru') {
+          localStorage.setItem(LOCAL_STORAGE_LANGUAGE_KEY, newLanguage);
+          document.documentElement.lang = newLanguage;
         }
+      }
+      return newLanguage;
+    });
+  };
+  
+  useEffect(() => {
+    // Этот эффект синхронизирует document.documentElement.lang при изменении языка,
+    // но только после инициализации на клиенте.
+    if (isLanguageInitialized) {
+        document.documentElement.lang = language;
     }
-  }, [language, isLanguageInitialized]);
+  }, [language, isLanguageInitialized])
+
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, isLanguageInitialized }}>
