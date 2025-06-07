@@ -1,4 +1,9 @@
 
+// This file is no longer used as display cost estimation is now done algorithmically
+// on the client-side in src/app/rd/page.tsx.
+// It's kept here for reference or if AI estimation is re-introduced as an option later.
+
+/*
 'use server';
 /**
  * @fileOverview Estimates manufacturing and research costs for a custom display.
@@ -6,15 +11,15 @@
  * - estimateDisplayCosts - A function that takes display specs and returns estimated costs.
  * - EstimateDisplayCostsInput - The input type.
  * - EstimateDisplayCostsOutput - The return type.
- */
+ * /
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { 
-    EstimateDisplayCostsInputSchema, 
-    type EstimateDisplayCostsInput, 
-    EstimateDisplayCostsOutputSchema, 
-    type EstimateDisplayCostsOutput 
+import {
+    EstimateDisplayCostsInputSchema,
+    type EstimateDisplayCostsInput,
+    EstimateDisplayCostsOutputSchema,
+    type EstimateDisplayCostsOutput
 } from '@/lib/types';
 
 
@@ -65,7 +70,7 @@ const estimateDisplayCostsFlow = ai.defineFlow(
         if (input.resolutionCategory === 'qhd') fallbackMfgCost += 30;
         fallbackMfgCost += (input.refreshRate - 60) / 3; // approx +10 for 90, +20 for 120
 
-        return { 
+        return {
             estimatedManufacturingCost: parseFloat(Math.max(10, Math.min(200, fallbackMfgCost)).toFixed(2)),
             estimatedResearchCost: parseFloat(Math.max(500, fallbackMfgCost * 10).toFixed(2))
         };
@@ -77,12 +82,12 @@ const estimateDisplayCostsFlow = ai.defineFlow(
     if (output.estimatedResearchCost < output.estimatedManufacturingCost * 3) {
         output.estimatedResearchCost = output.estimatedManufacturingCost * 5;
     }
-    
+
     return {
         estimatedManufacturingCost: parseFloat(output.estimatedManufacturingCost.toFixed(2)),
         estimatedResearchCost: parseFloat(output.estimatedResearchCost.toFixed(2)),
     };
   }
 );
-
-    
+*/
+void 0; // Keep TypeScript happy with an empty file if all content is commented out
