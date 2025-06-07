@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState, useEffect, useCallback } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,9 @@ import { LogOut, Languages } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Language } from '@/context/LanguageContext';
+import { Progress } from '@/components/ui/progress';
+import type { GameStats } from '@/lib/types';
+import { LOCAL_STORAGE_GAME_STATS_KEY, calculateXpToNextLevel } from '@/lib/types';
 
 const navItemTitleKeys: Record<string, string> = {
   '/': 'pageTitleDashboard',
@@ -17,6 +21,14 @@ const navItemTitleKeys: Record<string, string> = {
   '/market': 'pageTitleMarket',
   '/financials': 'pageTitleFinancials',
   '/trends': 'pageTitleTrends',
+  '/procurement': 'pageTitleProcurement',
+  '/rd': 'pageTitleRD',
+  '/settings': 'pageTitleSettings',
+};
+
+const defaultInitialHeaderStats: Pick<GameStats, 'level' | 'xp'> = {
+  level: 1,
+  xp: 0,
 };
 
 export function PageHeader() {
@@ -25,6 +37,48 @@ export function PageHeader() {
   
   const titleKey = navItemTitleKeys[pathname] || 'pageTitleDashboard';
   const title = t(titleKey);
+
+  const [level, setLevel] = useState(defaultInitialHeaderStats.level);
+  const [xp, setXp] = useState(defaultInitialHeaderStats.xp);
+  const [xpToNext, setXpToNext] = useState(calculateXpToNextLevel(defaultInitialHeaderStats.level));
+  const [isStatsLoaded, setIsStatsLoaded] = useState(false);
+
+  const loadStats = useCallback(() => {
+    const storedStatsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
+    let statsToSet: Pick<GameStats, 'level' | 'xp'> = { ...defaultInitialHeaderStats };
+
+    if (storedStatsString) {
+      try {
+        const parsedStats = JSON.parse(storedStatsString) as Partial<GameStats>;
+        statsToSet = {
+          level: parsedStats.level ?? defaultInitialHeaderStats.level,
+          xp: parsedStats.xp ?? defaultInitialHeaderStats.xp,
+        };
+      } catch (error) {
+        console.error("Error parsing game stats in PageHeader:", error);
+        // Keep defaultInitialHeaderStats if parsing fails
+      }
+    }
+    setLevel(statsToSet.level);
+    setXp(statsToSet.xp);
+    setXpToNext(calculateXpToNextLevel(statsToSet.level));
+    setIsStatsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    loadStats(); // Initial load
+    
+    const handleGameStatsChanged = () => {
+      loadStats();
+    };
+
+    window.addEventListener('gameStatsChanged', handleGameStatsChanged);
+    return () => {
+      window.removeEventListener('gameStatsChanged', handleGameStatsChanged);
+    };
+  }, [loadStats]);
+
+  const progressPercentage = xpToNext > 0 ? Math.min((xp / xpToNext) * 100, 100) : 0;
 
   const handleLanguageChange = (value: string) => {
     setLanguage(value as Language);
@@ -36,7 +90,16 @@ export function PageHeader() {
         <SidebarTrigger />
       </div>
       <h1 className="text-xl font-semibold font-headline">{title}</h1>
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-6"> {/* Increased gap for new elements */}
+        {isStatsLoaded && (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-medium">{t('levelLabelShort')}: {level}</span>
+            <div className="flex flex-col items-center w-28"> {/* Adjusted width */}
+              <Progress value={progressPercentage} className="h-2.5 w-full rounded-full" /> {/* Slightly thicker and rounded */}
+              <span className="text-xs text-muted-foreground mt-0.5">{xp}/{xpToNext} {t('xpLabel')}</span>
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2">
            <Languages className="h-5 w-5 text-muted-foreground" />
            <Select value={language} onValueChange={handleLanguageChange}>
