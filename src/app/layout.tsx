@@ -9,6 +9,7 @@ import { SettingsProvider } from '@/context/SettingsContext';
 export const metadata: Metadata = {
   title: 'Gadget Tycoon',
   description: 'Create and sell your own gadgets!',
+  manifest: '/manifest.json', // Added manifest link
 };
 
 export default function RootLayout({
@@ -27,6 +28,9 @@ export default function RootLayout({
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+            {/* Standard favicon links - you would need to add these files to /public */}
+            {/* <link rel="icon" href="/favicon.ico" sizes="any" /> */}
+            {/* <link rel="apple-touch-icon" href="/apple-touch-icon.png" /> */}
           </head>
           <body className="font-body antialiased" suppressHydrationWarning={true}>
             <AppLayout>{children}</AppLayout>

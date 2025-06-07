@@ -34,11 +34,13 @@ import {
   type PhoneDesign, type PhoneComponentOption, type GameStats, type Transaction, type CustomProcessor, type CustomDisplay,
   LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY,
   INITIAL_FUNDS, BASE_DESIGN_ASSEMBLY_COST, SALE_MARKUP_FACTOR,
-  XP_FOR_DESIGNING_PHONE, calculateXpToNextLevel, LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY, LOCAL_STORAGE_CUSTOM_DISPLAYS_KEY
+  XP_FOR_DESIGNING_PHONE, calculateXpToNextLevel, LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY, LOCAL_STORAGE_CUSTOM_DISPLAYS_KEY,
+  MONEY_BONUS_PER_LEVEL_BASE, MONEY_BONUS_FIXED_AMOUNT
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/hooks/useTranslation';
 import { getPhoneDesignReview, type GenerateReviewFormState } from './actions';
+import { useSettings } from '@/context/SettingsContext';
 
 
 const phoneDesignSchema = z.object({
@@ -74,6 +76,7 @@ type PhoneDesignFormData = z.infer<typeof phoneDesignSchema>;
 export default function DesignPhonePage() {
   const { t, language } = useTranslation();
   const { toast } = useToast();
+  const { settings } = useSettings();
   const [unitManufacturingCost, setUnitManufacturingCost] = useState(0);
   const [totalProductionCost, setTotalProductionCost] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -273,9 +276,15 @@ export default function DesignPhonePage() {
       currentStats.level++;
       currentStats.xp -= xpToNext;
       xpToNext = calculateXpToNextLevel(currentStats.level);
+      const moneyBonus = MONEY_BONUS_FIXED_AMOUNT + (currentStats.level * MONEY_BONUS_PER_LEVEL_BASE);
+      currentStats.totalFunds += moneyBonus;
       toast({
         title: t('levelUpNotificationTitle'),
         description: t('levelUpNotificationDesc', { level: currentStats.level }),
+      });
+      toast({
+        title: t('moneyBonusNotification', {amount: moneyBonus.toLocaleString(language)}),
+        description: t('congratulationsOnLevelUp'),
       });
     }
 
@@ -324,44 +333,69 @@ export default function DesignPhonePage() {
         }),
       });
 
-      setIsGeneratingReview(true);
-      
-      let processorNameForReview = data.processor;
-      const selectedProcOption = allProcessorOptions.find(opt => opt.value === data.processor);
-      processorNameForReview = selectedProcOption ? selectedProcOption.label : data.processor;
+      // AI Review or Local Review based on settings
+      if (settings.useOnlineFeatures) {
+          setIsGeneratingReview(true);
+          let processorNameForReview = data.processor;
+          const selectedProcOption = allProcessorOptions.find(opt => opt.value === data.processor);
+          processorNameForReview = selectedProcOption ? selectedProcOption.label : data.processor;
 
+          let displayTypeForReview = data.displayType;
+          const selectedDisplayOption = allDisplayOptions.find(opt => opt.value === data.displayType);
+          displayTypeForReview = selectedDisplayOption ? selectedDisplayOption.label : data.displayType;
+          
+          const reviewInputData = { 
+            ...data, 
+            unitManufacturingCost: currentUnitCost,
+            processor: processorNameForReview,
+            displayType: displayTypeForReview,
+          };
+          const reviewResult = await getPhoneDesignReview(reviewInputData);
+          setReviewState(reviewResult);
+          setIsGeneratingReview(false);
 
-      let displayTypeForReview = data.displayType;
-      const selectedDisplayOption = allDisplayOptions.find(opt => opt.value === data.displayType);
-      displayTypeForReview = selectedDisplayOption ? selectedDisplayOption.label : data.displayType;
-      
-      const reviewInputData = { 
-        ...data, 
-        unitManufacturingCost: currentUnitCost,
-        processor: processorNameForReview,
-        displayType: displayTypeForReview,
-      };
-      const reviewResult = await getPhoneDesignReview(reviewInputData);
-      setReviewState(reviewResult);
-      setIsGeneratingReview(false);
-
-      if (reviewResult.review && !reviewResult.error) {
-        const phonesAfterReviewString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
-        let phonesAfterReview: PhoneDesign[] = phonesAfterReviewString ? JSON.parse(phonesAfterReviewString) : [];
-        phonesAfterReview = phonesAfterReview.map(p =>
-          p.id === phoneToSave.id ? { ...p, review: reviewResult.review?.reviewText } : p
-        );
-        localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(phonesAfterReview));
-        toast({
-          title: t('aiReviewGeneratedTitle'),
-          description: t('aiReviewGeneratedDesc', {name: data.name})
-        });
-      } else if (reviewResult.error) {
-         toast({
-          variant: "destructive",
-          title: t('aiReviewErrorTitle'),
-          description: reviewResult.message || t('aiReviewErrorDesc'),
-        });
+          if (reviewResult.review && !reviewResult.error) {
+            const phonesAfterReviewString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
+            let phonesAfterReview: PhoneDesign[] = phonesAfterReviewString ? JSON.parse(phonesAfterReviewString) : [];
+            phonesAfterReview = phonesAfterReview.map(p =>
+              p.id === phoneToSave.id ? { ...p, review: reviewResult.review?.reviewText } : p
+            );
+            localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(phonesAfterReview));
+            toast({
+              title: t('aiReviewGeneratedTitle'),
+              description: t('aiReviewGeneratedDesc', {name: data.name})
+            });
+          } else if (reviewResult.error) {
+             toast({
+              variant: "destructive",
+              title: t('aiReviewErrorTitle'),
+              description: reviewResult.message || t('aiReviewErrorDesc'),
+            });
+          }
+      } else {
+          // Generate Local Review
+          // This is a placeholder for actual local review generation logic
+          const localReviewText = `This ${data.name} phone offers a good balance for its cost of $${currentUnitCost.toFixed(2)}.`;
+          setReviewState({
+            message: "Local review generated.",
+            review: {
+                reviewText: localReviewText,
+                pros: ["Locally generated pro 1", "Locally generated pro 2"],
+                cons: ["Locally generated con 1"],
+                overallSentiment: "Neutral"
+            },
+            error: false,
+          });
+           const phonesAfterReviewString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
+           let phonesAfterReview: PhoneDesign[] = phonesAfterReviewString ? JSON.parse(phonesAfterReviewString) : [];
+           phonesAfterReview = phonesAfterReview.map(p =>
+             p.id === phoneToSave.id ? { ...p, review: localReviewText } : p
+           );
+           localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(phonesAfterReview));
+           toast({
+            title: t('localReviewGeneratedTitle'),
+            description: t('localReviewGeneratedDesc', {name: data.name})
+           });
       }
       reset(defaultValues);
 
@@ -458,7 +492,7 @@ export default function DesignPhonePage() {
                             const commonProps = { ...controllerField, id: field.name };
                             if (field.componentType === "Select") {
                               return (
-                                <Select onValueChange={commonProps.onChange} value={String(commonProps.value)} defaultValue={String(commonProps.value)}>
+                                <Select onValueChange={commonProps.onChange} value={String(commonProps.value)} >
                                   <SelectTrigger>
                                     <SelectValue placeholder={t('selectPlaceholder', {label: t(field.labelKey).toLowerCase()})} />
                                   </SelectTrigger>

@@ -106,6 +106,8 @@ export interface Transaction {
   type: 'income' | 'expense';
 }
 
+export type GameDifficulty = 'easy' | 'normal' | 'hard';
+
 export interface GameStats {
   totalFunds: number;
   phonesSold: number;
@@ -116,6 +118,7 @@ export interface GameStats {
 
 export interface GameSettings {
   useOnlineFeatures: boolean; // true for AI, false for local algorithms
+  difficulty: GameDifficulty;
 }
 
 
@@ -156,7 +159,7 @@ export interface ClientContract {
 
 // --- Genkit Flow Schemas and Types ---
 
-// For estimate-display-costs-flow.ts
+// For estimate-display-costs-flow.ts (Now mostly for reference if AI is re-enabled for displays)
 export const EstimateDisplayCostsInputSchema = z.object({
   resolutionCategory: z.enum(['hd', 'fhd', 'qhd']).describe("The resolution category of the display (e.g., 'hd', 'fhd', 'qhd')."),
   technology: z.enum(['lcd', 'oled', 'ltpo_oled']).describe("The display panel technology (e.g., 'lcd', 'oled', 'ltpo_oled')."),
@@ -186,6 +189,7 @@ export type GenerateBrandSlogansOutput = z.infer<typeof GenerateBrandSlogansOutp
 // For generate-contract-flow.ts
 export const GenerateClientContractInputSchema = z.object({
   playerReputation: z.number().optional().describe("Optional player's brand reputation score (-10 to 10), to potentially influence contract difficulty/reward."),
+  playerLevel: z.number().optional().describe("Optional player's level, to potentially influence contract complexity or rewards."),
 });
 export type GenerateClientContractInput = z.infer<typeof GenerateClientContractInputSchema>;
 
@@ -421,25 +425,35 @@ export const LOCAL_STORAGE_GAME_SETTINGS_KEY = 'gadgetTycoon_gameSettings';
 
 
 export const SALE_MARKUP_FACTOR = 1.5;
-export const INITIAL_FUNDS = 2000;
-export const BASE_DESIGN_ASSEMBLY_COST = 10;
+export const INITIAL_FUNDS = 1000; // Reduced initial funds
+export const BASE_DESIGN_ASSEMBLY_COST = 5; // Reduced base assembly cost
 
 // Market Simulation Parameters
+export const BASE_MARKET_SALE_CHANCE_PER_UNIT = 0.08; // Base chance, will be modified by level and difficulty
 export const MARKET_SIMULATION_INTERVAL = 60000; // 60 seconds
 export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 2;
-export const MARKET_SALE_CHANCE_PER_UNIT = 0.10;
 export const MARKET_CATCH_UP_THRESHOLD_MINUTES = 5;
 export const MARKET_MAX_CATCH_UP_INTERVALS = 10;
+
+// Difficulty Modifiers for sale chance
+export const DIFFICULTY_SALE_CHANCE_MODIFIERS: Record<GameDifficulty, number> = {
+  easy: 1.25,    // 25% higher chance
+  normal: 1.0,   // Base chance
+  hard: 0.75,    // 25% lower chance
+};
 
 export const MAX_AVAILABLE_CONTRACTS = 3;
 
 // Leveling System
 export const XP_FOR_DESIGNING_PHONE = 50;
 export const XP_PER_PHONE_SOLD = 2;
-export const XP_FOR_RESEARCHING_COMPONENT = 30; // XP for researching a custom component
+export const XP_FOR_RESEARCHING_COMPONENT = 30;
 
 export function calculateXpToNextLevel(level: number): number {
-  return level * 100;
+  return level * 100 + 50 * (level -1); // Slightly increasing XP needed for next level
 }
+
+export const MONEY_BONUS_PER_LEVEL_BASE = 250;
+export const MONEY_BONUS_FIXED_AMOUNT = 100;
 
     

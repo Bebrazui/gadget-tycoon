@@ -9,10 +9,12 @@ import { SectionTitle } from '@/components/shared/SectionTitle';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { GameDifficulty } from '@/lib/types';
 
 export default function SettingsPage() {
   const { t } = useTranslation();
-  const { settings, toggleOnlineMode, isOnlineMode } = useSettings();
+  const { settings, toggleOnlineMode, isOnlineMode, setDifficulty } = useSettings();
   const { toast } = useToast();
 
   const handleToggleOnlineFeatures = () => {
@@ -20,6 +22,15 @@ export default function SettingsPage() {
     toast({
       title: t('settingsSaved'),
       description: isOnlineMode ? t('onlineFeaturesLabel') + ': ' + t('disabled') : t('onlineFeaturesLabel') + ': ' + t('enabled'),
+    });
+  };
+
+  const handleDifficultyChange = (value: string) => {
+    const newDifficulty = value as GameDifficulty;
+    setDifficulty(newDifficulty);
+    toast({
+        title: t('settingsSaved'),
+        description: `${t('gameDifficultyLabel')}: ${t(`difficulty_${newDifficulty}`)}`,
     });
   };
 
@@ -41,6 +52,7 @@ export default function SettingsPage() {
               id="online-features"
               checked={settings.useOnlineFeatures}
               onCheckedChange={handleToggleOnlineFeatures}
+              aria-label={t('onlineFeaturesLabel')}
             />
             <Label htmlFor="online-features">
               {settings.useOnlineFeatures ? t('enabled') : t('disabled')}
@@ -49,18 +61,24 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Future settings can be added here */}
-      {/* 
       <Card>
         <CardHeader>
-          <CardTitle>Game Difficulty</CardTitle>
-          <CardDescription>Adjust game difficulty (coming soon).</CardDescription>
+          <CardTitle>{t('gameDifficultyLabel')}</CardTitle>
+          <CardDescription>{t('gameDifficultyDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">This feature is planned for a future update.</p>
+          <Select value={settings.difficulty} onValueChange={handleDifficultyChange}>
+            <SelectTrigger className="w-[180px]" aria-label={t('gameDifficultyLabel')}>
+              <SelectValue placeholder={t('gameDifficultyLabel')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="easy">{t('difficulty_easy')}</SelectItem>
+              <SelectItem value="normal">{t('difficulty_normal')}</SelectItem>
+              <SelectItem value="hard">{t('difficulty_hard')}</SelectItem>
+            </SelectContent>
+          </Select>
         </CardContent>
       </Card>
-      */}
     </div>
   );
 }

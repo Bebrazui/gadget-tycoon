@@ -1,3 +1,4 @@
+
 export type Translations = {
   [key: string]: { [key: string]: string };
 };
@@ -64,6 +65,7 @@ const translations: Translations = {
     xpGainedNotification: "+{{amount}} XP Gained!",
     levelUpNotificationTitle: "Level Up!",
     levelUpNotificationDesc: "Congratulations! You've reached Level {{level}}.",
+    moneyBonusNotification: "Level Up Bonus: +${{amount}} added to your funds!",
     // Design Page
     designPhoneTitle: "Design & Produce Your Next Phone",
     designPhoneDesc: "Select components, name your creation, set production quantity, and customize its appearance.",
@@ -436,6 +438,11 @@ const translations: Translations = {
     onlineFeaturesLabel: "Use Online AI Features",
     onlineFeaturesDesc: "Enable to use AI for specific features like advanced trend forecasting or detailed component cost analysis (if available). Disable for a fully offline experience with algorithmic estimations.",
     settingsSaved: "Settings saved!",
+    gameDifficultyLabel: "Game Difficulty",
+    gameDifficultyDesc: "Adjust the overall challenge of the game. Affects market dynamics, costs, etc.",
+    difficulty_easy: "Easy",
+    difficulty_normal: "Normal",
+    difficulty_hard: "Hard",
     // General UI
     languageLabel: "Language",
     logOut: "Log out",
@@ -519,6 +526,7 @@ const translations: Translations = {
     xpGainedNotification: "Получено +{{amount}} XP!",
     levelUpNotificationTitle: "Новый уровень!",
     levelUpNotificationDesc: "Поздравляем! Вы достигли {{level}} уровня.",
+    moneyBonusNotification: "Бонус за уровень: +${{amount}} добавлено к вашим средствам!",
     // Design Page
     designPhoneTitle: "Создайте и произведите свой следующий телефон",
     designPhoneDesc: "Выберите компоненты, назовите свое творение, укажите объем производства и настройте внешний вид.",
@@ -891,6 +899,11 @@ const translations: Translations = {
     onlineFeaturesLabel: "Использовать онлайн ИИ-функции",
     onlineFeaturesDesc: "Включите для использования ИИ для определенных функций, таких как расширенное прогнозирование трендов или детальный анализ стоимости компонентов (если доступно). Отключите для полностью офлайн-игры с алгоритмическими расчетами.",
     settingsSaved: "Настройки сохранены!",
+    gameDifficultyLabel: "Сложность Игры",
+    gameDifficultyDesc: "Настройте общую сложность игры. Влияет на динамику рынка, стоимость и т.д.",
+    difficulty_easy: "Легко",
+    difficulty_normal: "Нормально",
+    difficulty_hard: "Сложно",
     // General UI
     languageLabel: "Язык",
     logOut: "Выйти",

@@ -10,14 +10,16 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { useTranslation } from "@/hooks/useTranslation";
-import type { GameStats, PhoneDesign, Transaction } from '@/lib/types';
+import type { GameStats, PhoneDesign, Transaction, GameSettings } from '@/lib/types';
 import { 
     LOCAL_STORAGE_GAME_STATS_KEY, INITIAL_FUNDS, LOCAL_STORAGE_MY_PHONES_KEY,
     LOCAL_STORAGE_TRANSACTIONS_KEY, MARKET_SIMULATION_INTERVAL,
-    MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL, MARKET_SALE_CHANCE_PER_UNIT,
+    MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL, BASE_MARKET_SALE_CHANCE_PER_UNIT,
     LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, MARKET_CATCH_UP_THRESHOLD_MINUTES,
     MARKET_MAX_CATCH_UP_INTERVALS,
-    XP_PER_PHONE_SOLD, XP_FOR_DESIGNING_PHONE, calculateXpToNextLevel
+    XP_PER_PHONE_SOLD, calculateXpToNextLevel,
+    MONEY_BONUS_PER_LEVEL_BASE, MONEY_BONUS_FIXED_AMOUNT, LOCAL_STORAGE_GAME_SETTINGS_KEY,
+    DIFFICULTY_SALE_CHANCE_MODIFIERS
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -30,6 +32,11 @@ const defaultGameStats: GameStats = {
   xp: 0,
 };
 
+const defaultGameSettings: GameSettings = {
+  useOnlineFeatures: true,
+  difficulty: 'normal',
+};
+
 interface DisplayStats {
   totalFunds: string | null;
   phonesSold: string | null;
@@ -39,6 +46,7 @@ export default function DashboardPage() {
   const { t, language } = useTranslation();
   const { toast } = useToast();
   const [gameStats, setGameStats] = useState<GameStats>(defaultGameStats);
+  const [gameSettings, setGameSettings] = useState<GameSettings>(defaultGameSettings);
   const [displayStats, setDisplayStats] = useState<DisplayStats>({ totalFunds: null, phonesSold: null });
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -56,18 +64,26 @@ export default function DashboardPage() {
     if (currentStats.level === undefined) currentStats.level = 1;
     if (currentStats.xp === undefined) currentStats.xp = 0;
 
+    const currentSettingsString = localStorage.getItem(LOCAL_STORAGE_GAME_SETTINGS_KEY);
+    const currentSettings: GameSettings = currentSettingsString ? JSON.parse(currentSettingsString) : defaultGameSettings;
+
 
     let currentTransactionsString = localStorage.getItem(LOCAL_STORAGE_TRANSACTIONS_KEY);
     let currentTransactions: Transaction[] = currentTransactionsString ? JSON.parse(currentTransactionsString) : [];
 
     let phonesModifiedInLoop = false;
 
+    const difficultyModifier = DIFFICULTY_SALE_CHANCE_MODIFIERS[currentSettings.difficulty] || 1.0;
+    const levelBasedSaleChanceBonus = (currentStats.level - 1) * 0.005; // +0.5% chance per level above 1
+    const actualMarketSaleChance = BASE_MARKET_SALE_CHANCE_PER_UNIT * difficultyModifier * (1 + levelBasedSaleChanceBonus);
+
+
     for (let i = 0; i < catchUpIntervals; i++) {
       currentPhones = currentPhones.map(phone => {
         if (phone.quantityListedForSale > 0) {
           let salesForThisPhoneInInterval = 0;
           for (let unit = 0; unit < phone.quantityListedForSale; unit++) {
-            if (Math.random() < MARKET_SALE_CHANCE_PER_UNIT && salesForThisPhoneInInterval < MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL) {
+            if (Math.random() < actualMarketSaleChance && salesForThisPhoneInInterval < MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL) {
               salesForThisPhoneInInterval++;
             }
           }
@@ -116,9 +132,17 @@ export default function DashboardPage() {
         currentStats.level++;
         currentStats.xp -= xpToNext;
         xpToNext = calculateXpToNextLevel(currentStats.level);
+        
+        const moneyBonus = MONEY_BONUS_FIXED_AMOUNT + (currentStats.level * MONEY_BONUS_PER_LEVEL_BASE);
+        currentStats.totalFunds += moneyBonus;
+
         toast({
           title: t('levelUpNotificationTitle'),
           description: t('levelUpNotificationDesc', { level: currentStats.level }),
+        });
+        toast({
+            title: t('moneyBonusNotification', {amount: moneyBonus.toLocaleString(language)}),
+            description: t('congratulationsOnLevelUp'),
         });
       }
     }
@@ -158,7 +182,8 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-    const loadStats = () => {
+    const loadGameData = () => {
+      // Load Game Stats
       const storedStatsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
       let currentStats: GameStats = { ...defaultGameStats };
       if (storedStatsString) {
@@ -189,14 +214,34 @@ export default function DashboardPage() {
         totalFunds: `$${currentStats.totalFunds.toLocaleString(language)}`,
         phonesSold: currentStats.phonesSold.toLocaleString(language),
       });
+
+      // Load Game Settings
+      const storedSettingsString = localStorage.getItem(LOCAL_STORAGE_GAME_SETTINGS_KEY);
+      let currentSettings: GameSettings = { ...defaultGameSettings };
+      if (storedSettingsString) {
+        try {
+            currentSettings = JSON.parse(storedSettingsString);
+            if (typeof currentSettings.useOnlineFeatures !== 'boolean' || !['easy', 'normal', 'hard'].includes(currentSettings.difficulty)) {
+                currentSettings = { ...defaultGameSettings, ...currentSettings }; // Merge to ensure all fields are present
+                localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(currentSettings));
+            }
+        } catch (error) {
+            console.error("Error parsing game settings from localStorage:", error);
+            localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(defaultGameSettings));
+        }
+      } else {
+          localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(defaultGameSettings));
+      }
+      setGameSettings(currentSettings);
     };
     
-    loadStats();
+    loadGameData();
 
-    const handleStatsUpdate = () => {
-        loadStats(); 
-    };
+    const handleStatsUpdate = () => { loadGameData(); };
+    const handleSettingsUpdate = () => { loadGameData(); };
+
     window.addEventListener('gameStatsChanged', handleStatsUpdate);
+    window.addEventListener('gameSettingsChanged', handleSettingsUpdate); // Listen for settings changes
 
     
     const lastSimTime = localStorage.getItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY);
@@ -217,8 +262,6 @@ export default function DashboardPage() {
       
       localStorage.setItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, Date.now().toString());
     }
-
-
     
     if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
     simulationIntervalRef.current = setInterval(() => {
@@ -228,6 +271,7 @@ export default function DashboardPage() {
 
     return () => {
         window.removeEventListener('gameStatsChanged', handleStatsUpdate);
+        window.removeEventListener('gameSettingsChanged', handleSettingsUpdate);
         if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
     };
 
@@ -277,7 +321,7 @@ export default function DashboardPage() {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          {t('marketSimulationActive')}
+          {t('marketSimulationActive')} {t('currentDifficultyLabel')}: {t(`difficulty_${gameSettings.difficulty}`)}
         </AlertDescription>
       </Alert>
 
@@ -330,5 +374,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

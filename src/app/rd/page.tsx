@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -23,13 +24,14 @@ import {
     calculateXpToNextLevel,
     DISPLAY_RESOLUTION_CATEGORIES_RD,
     DISPLAY_TECHNOLOGIES_RD,
-    DISPLAY_REFRESH_RATES_RD
+    DISPLAY_REFRESH_RATES_RD,
+    MONEY_BONUS_PER_LEVEL_BASE, MONEY_BONUS_FIXED_AMOUNT
 } from '@/lib/types';
 import { FlaskConical, Loader2, PackagePlus, AlertCircle, Cpu, MonitorSmartphone, DollarSign } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-// import { getEstimatedDisplayCostsAction } from './actions'; // No longer needed for display estimation
+// import { getEstimatedDisplayCostsAction } from './actions'; // No longer used for display estimation
 import { useSettings } from '@/context/SettingsContext';
 
 
@@ -52,8 +54,9 @@ type CustomDisplayFormData = z.infer<typeof customDisplaySchema>;
 
 // Algorithmic cost calculation for Processors
 const calculateAlgorithmicProcessorCosts = (data: Partial<CustomProcessorFormData>): { manufacturingCost: number; researchCost: number } | null => {
-    if (data.antutuScore === undefined || data.coreCount === undefined || data.clockSpeed === undefined ||
-        data.antutuScore < 100000 || data.coreCount < 2 || data.clockSpeed < 1.0) {
+    if (data.antutuScore === undefined || data.antutuScore === null || data.antutuScore < 100000 ||
+        data.coreCount === undefined || data.coreCount === null || data.coreCount < 2 ||
+        data.clockSpeed === undefined || data.clockSpeed === null || data.clockSpeed < 1.0) {
         return null;
     }
 
@@ -71,7 +74,10 @@ const calculateAlgorithmicProcessorCosts = (data: Partial<CustomProcessorFormDat
 };
 
 // Algorithmic cost calculation for Displays
-const calculateAlgorithmicDisplayCosts = (data: CustomDisplayFormData): { manufacturingCost: number; researchCost: number } => {
+const calculateAlgorithmicDisplayCosts = (data: Partial<CustomDisplayFormData>): { manufacturingCost: number; researchCost: number } | null => {
+    if (!data.resolutionCategory || !data.technology || data.refreshRate === undefined || data.refreshRate < 60) {
+        return null;
+    }
     let mfgCost = 10;
     if (data.technology === 'oled') mfgCost += 25;
     if (data.technology === 'ltpo_oled') mfgCost += 45;
@@ -89,21 +95,20 @@ const calculateAlgorithmicDisplayCosts = (data: CustomDisplayFormData): { manufa
 
 
 export default function RDPage() {
-    const { t } = useTranslation();
+    const { t, language } = useTranslation();
     const { toast } = useToast();
     const { settings } = useSettings();
-    const isOnlineMode = settings.useOnlineFeatures; // Still relevant for other potential AI features
     const [activeTab, setActiveTab] = useState("processors");
 
     // Processors State
     const [customProcessors, setCustomProcessors] = useState<CustomProcessor[]>([]);
     const [isResearchingProcessor, setIsResearchingProcessor] = useState(false);
-    const [estimatedProcessorCosts, setEstimatedProcessorCosts] = useState<{mfg: number, res: number} | null>(null);
+    const [estimatedProcessorCosts, setEstimatedProcessorCosts] = useState<{manufacturingCost: number, researchCost: number} | null>(null);
 
     // Displays State
     const [customDisplays, setCustomDisplays] = useState<CustomDisplay[]>([]);
     const [isResearchingDisplay, setIsResearchingDisplay] = useState(false);
-    const [estimatedDisplayCosts, setEstimatedDisplayCosts] = useState<{mfg: number, res: number} | null>(null);
+    const [estimatedDisplayCosts, setEstimatedDisplayCosts] = useState<{manufacturingCost: number, researchCost: number} | null>(null);
 
     // Processor Form
     const { control: procControl, handleSubmit: handleProcSubmit, reset: resetProcForm, formState: { errors: procErrors }, getValues: getProcValues, watch: watchProc } = useForm<CustomProcessorFormData>({
@@ -116,41 +121,21 @@ export default function RDPage() {
     useEffect(() => {
         const costs = calculateAlgorithmicProcessorCosts(watchedProcFormValues);
         setEstimatedProcessorCosts(costs);
-    }, [watchedProcFormValues.antutuScore, watchedProcFormValues.coreCount, watchedProcFormValues.clockSpeed, watchedProcFormValues]);
+    }, [watchedProcFormValues]);
 
 
     // Display Form
-    const { control: displayControl, handleSubmit: handleDisplaySubmit, reset: resetDisplayForm, formState: { errors: displayErrors }, getValues: getDisplayValues } = useForm<CustomDisplayFormData>({
+    const { control: displayControl, handleSubmit: handleDisplaySubmit, reset: resetDisplayForm, formState: { errors: displayErrors }, getValues: getDisplayValues, watch: watchDisplay } = useForm<CustomDisplayFormData>({
         resolver: zodResolver(customDisplaySchema),
         defaultValues: { name: '', resolutionCategory: DISPLAY_RESOLUTION_CATEGORIES_RD[1]?.value || '', technology: DISPLAY_TECHNOLOGIES_RD[1]?.value || '', refreshRate: DISPLAY_REFRESH_RATES_RD[1]?.value || 90 },
         mode: "onBlur"
     });
-    const watchedDisplayValues = useWatch({ control: displayControl });
+    const watchedDisplayFormValues = watchDisplay();
 
     useEffect(() => {
-        const formData = getDisplayValues();
-        if (formData.name && formData.resolutionCategory && formData.technology && formData.refreshRate) {
-             const costs = calculateAlgorithmicDisplayCosts({
-                name: formData.name,
-                resolutionCategory: formData.resolutionCategory,
-                technology: formData.technology,
-                refreshRate: Number(formData.refreshRate)
-            });
-            if (costs) {
-                 setEstimatedDisplayCosts({ mfg: costs.manufacturingCost, res: costs.researchCost });
-            } else {
-                setEstimatedDisplayCosts(null);
-            }
-        } else {
-            setEstimatedDisplayCosts(null);
-        }
-    }, [
-        watchedDisplayValues.name,
-        watchedDisplayValues.resolutionCategory,
-        watchedDisplayValues.technology,
-        watchedDisplayValues.refreshRate,
-        getDisplayValues // Include getDisplayValues if it's used within the effect
-    ]);
+        const costs = calculateAlgorithmicDisplayCosts(watchedDisplayFormValues);
+        setEstimatedDisplayCosts(costs);
+    }, [watchedDisplayFormValues]);
 
 
     const loadComponents = useCallback(() => {
@@ -179,7 +164,7 @@ export default function RDPage() {
             return;
         }
         setIsResearchingProcessor(true);
-        const {mfg: manufacturingCost, res: researchCost} = estimatedProcessorCosts;
+        const {manufacturingCost, researchCost} = estimatedProcessorCosts;
 
         const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
         let currentStats: GameStats = statsString ? JSON.parse(statsString) : { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0, level: 1, xp: 0 };
@@ -195,7 +180,15 @@ export default function RDPage() {
         toast({ title: t('xpGainedNotification', { amount: XP_FOR_RESEARCHING_COMPONENT })});
 
         let xpToNext = calculateXpToNextLevel(currentStats.level);
-        while (currentStats.xp >= xpToNext) { currentStats.level++; currentStats.xp -= xpToNext; xpToNext = calculateXpToNextLevel(currentStats.level); toast({ title: t('levelUpNotificationTitle'), description: t('levelUpNotificationDesc', { level: currentStats.level }) }); }
+        while (currentStats.xp >= xpToNext) { 
+            currentStats.level++; 
+            currentStats.xp -= xpToNext; 
+            xpToNext = calculateXpToNextLevel(currentStats.level); 
+            const moneyBonus = MONEY_BONUS_FIXED_AMOUNT + (currentStats.level * MONEY_BONUS_PER_LEVEL_BASE);
+            currentStats.totalFunds += moneyBonus;
+            toast({ title: t('levelUpNotificationTitle'), description: t('levelUpNotificationDesc', { level: currentStats.level }) });
+            toast({ title: t('moneyBonusNotification', { amount: moneyBonus.toLocaleString(language) }), description: t('congratulationsOnLevelUp') });
+        }
 
         localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
         window.dispatchEvent(new CustomEvent('gameStatsChanged'));
@@ -224,7 +217,7 @@ export default function RDPage() {
             return;
         }
         setIsResearchingDisplay(true);
-        const { mfg: manufacturingCost, res: researchCost } = estimatedDisplayCosts;
+        const { manufacturingCost, researchCost } = estimatedDisplayCosts;
 
         const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
         let currentStats: GameStats = statsString ? JSON.parse(statsString) : { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0, level: 1, xp: 0 };
@@ -238,7 +231,15 @@ export default function RDPage() {
         currentStats.xp += XP_FOR_RESEARCHING_COMPONENT;
         toast({ title: t('xpGainedNotification', { amount: XP_FOR_RESEARCHING_COMPONENT })});
         let xpToNext = calculateXpToNextLevel(currentStats.level);
-        while (currentStats.xp >= xpToNext) { currentStats.level++; currentStats.xp -= xpToNext; xpToNext = calculateXpToNextLevel(currentStats.level); toast({ title: t('levelUpNotificationTitle'), description: t('levelUpNotificationDesc', { level: currentStats.level }) }); }
+        while (currentStats.xp >= xpToNext) { 
+            currentStats.level++; 
+            currentStats.xp -= xpToNext; 
+            xpToNext = calculateXpToNextLevel(currentStats.level); 
+            const moneyBonus = MONEY_BONUS_FIXED_AMOUNT + (currentStats.level * MONEY_BONUS_PER_LEVEL_BASE);
+            currentStats.totalFunds += moneyBonus;
+            toast({ title: t('levelUpNotificationTitle'), description: t('levelUpNotificationDesc', { level: currentStats.level }) });
+            toast({ title: t('moneyBonusNotification', { amount: moneyBonus.toLocaleString(language) }), description: t('congratulationsOnLevelUp') });
+        }
         localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
         window.dispatchEvent(new CustomEvent('gameStatsChanged'));
 
@@ -279,8 +280,7 @@ export default function RDPage() {
              <Alert>
                 <FlaskConical className="h-4 w-4" />
                 <AlertDescription>
-                  {/* This message might need adjustment if processor costs are always algorithmic */}
-                  {t('onlineModeActiveRD')}
+                  {settings.useOnlineFeatures && activeTab === "displays" ? t('onlineModeActiveRD') : t('offlineModeActiveRD')}
                 </AlertDescription>
               </Alert>
 
@@ -325,8 +325,8 @@ export default function RDPage() {
 
                                 {estimatedProcessorCosts && (
                                     <div className="text-sm space-y-1 p-3 bg-muted rounded-md">
-                                        <p>{t('estimatedMfgCost', {cost: estimatedProcessorCosts.mfg.toFixed(2)})}</p>
-                                        <p>{t('estimatedResearchCost', {cost: estimatedProcessorCosts.res.toFixed(2)})}</p>
+                                        <p>{t('estimatedMfgCost', {cost: estimatedProcessorCosts.manufacturingCost.toFixed(2)})}</p>
+                                        <p>{t('estimatedResearchCost', {cost: estimatedProcessorCosts.researchCost.toFixed(2)})}</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -364,7 +364,9 @@ export default function RDPage() {
                                 <PackagePlus className="w-6 h-6 mr-2 text-primary" />
                                 {t('developNewDisplayTitle')}
                             </CardTitle>
-                             <CardDescription>{t('displayCostsCalculatedAutomatically')}</CardDescription>
+                             <CardDescription>
+                                {settings.useOnlineFeatures ? t('displayCostsEstimatedByAI') : t('displayCostsCalculatedOffline')}
+                             </CardDescription>
                         </CardHeader>
                         <form onSubmit={handleDisplaySubmit(onDisplayResearchSubmit)}>
                             <CardContent className="space-y-6">
@@ -394,8 +396,8 @@ export default function RDPage() {
 
                                 {estimatedDisplayCosts && (
                                     <div className="text-sm space-y-1 p-3 bg-muted rounded-md">
-                                        <p>{t('estimatedMfgCost', {cost: estimatedDisplayCosts.mfg.toFixed(2)})}</p>
-                                        <p>{t('estimatedResearchCost', {cost: estimatedDisplayCosts.res.toFixed(2)})}</p>
+                                        <p>{t('estimatedMfgCost', {cost: estimatedDisplayCosts.manufacturingCost.toFixed(2)})}</p>
+                                        <p>{t('estimatedResearchCost', {cost: estimatedDisplayCosts.researchCost.toFixed(2)})}</p>
                                     </div>
                                 )}
                             </CardContent>

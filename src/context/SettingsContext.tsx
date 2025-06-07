@@ -3,7 +3,7 @@
 
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import type { GameSettings } from '@/lib/types';
+import type { GameSettings, GameDifficulty } from '@/lib/types';
 import { LOCAL_STORAGE_GAME_SETTINGS_KEY } from '@/lib/types';
 
 interface SettingsContextType {
@@ -11,10 +11,12 @@ interface SettingsContextType {
   setSettings: Dispatch<SetStateAction<GameSettings>>;
   isOnlineMode: boolean;
   toggleOnlineMode: () => void;
+  setDifficulty: (difficulty: GameDifficulty) => void;
 }
 
 const defaultSettings: GameSettings = {
   useOnlineFeatures: true, // Default to online mode
+  difficulty: 'normal', // Default difficulty
 };
 
 const defaultState: SettingsContextType = {
@@ -22,6 +24,7 @@ const defaultState: SettingsContextType = {
   setSettings: () => {},
   isOnlineMode: true,
   toggleOnlineMode: () => {},
+  setDifficulty: () => {},
 };
 
 export const SettingsContext = createContext<SettingsContextType>(defaultState);
@@ -34,15 +37,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const storedSettingsString = localStorage.getItem(LOCAL_STORAGE_GAME_SETTINGS_KEY);
     if (storedSettingsString) {
       try {
-        const storedSettings = JSON.parse(storedSettingsString) as GameSettings;
-        // Ensure the loaded settings have the expected boolean property
+        const storedSettings = JSON.parse(storedSettingsString) as Partial<GameSettings>;
+        // Ensure the loaded settings have the expected boolean property and valid difficulty
+        const validatedSettings: GameSettings = { ...defaultSettings };
         if (typeof storedSettings.useOnlineFeatures === 'boolean') {
-          setSettings(storedSettings);
-        } else {
-          // If malformed, reset to default and save
-          localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(defaultSettings));
-          setSettings(defaultSettings);
+          validatedSettings.useOnlineFeatures = storedSettings.useOnlineFeatures;
         }
+        if (storedSettings.difficulty && ['easy', 'normal', 'hard'].includes(storedSettings.difficulty)) {
+          validatedSettings.difficulty = storedSettings.difficulty;
+        }
+        setSettings(validatedSettings);
       } catch (error) {
         console.error("Error parsing game settings from localStorage. Using defaults.", error);
         localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(defaultSettings));
@@ -71,8 +75,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const setDifficulty = (difficulty: GameDifficulty) => {
+    setSettings(prevSettings => ({
+      ...prevSettings,
+      difficulty: difficulty,
+    }));
+  };
+
   return (
-    <SettingsContext.Provider value={{ settings, setSettings, isOnlineMode, toggleOnlineMode }}>
+    <SettingsContext.Provider value={{ settings, setSettings, isOnlineMode, toggleOnlineMode, setDifficulty }}>
       {children}
     </SettingsContext.Provider>
   );
