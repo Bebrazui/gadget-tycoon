@@ -777,7 +777,7 @@ const translations: Translations = {
     spec_minRam: "Мин. ОЗУ: {{value}} ГБ",
     spec_maxRam: "Макс. ОЗУ: {{value}} ГБ",
     spec_minStorage: "Мин. Память: {{value}} ГБ",
-    spec_maxStorage: "{{value}} ГБ",
+    spec_maxStorage: "Макс. Память: {{value}} ГБ",
     spec_minCameraMP: "Мин. Осн. Камера: {{value}} МП",
     spec_maxCameraMP: "Макс. Осн. Камера: {{value}} МП",
     spec_minBattery: "Мин. Батарея: {{value}} мАч",
@@ -877,5 +877,3 @@ const translations: Translations = {
 };
 
 export default translations;
-
-    
