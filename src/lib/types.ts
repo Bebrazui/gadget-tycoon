@@ -12,6 +12,10 @@ export interface PhoneComponentOption {
   antutuScore?: number; // For processors
   coreCount?: number; // For processors
   clockSpeed?: number; // For processors
+  // For displays (used in design page after R&D)
+  resolutionCategory?: string; 
+  technology?: string;
+  refreshRateValue?: number; 
 }
 
 export interface CustomProcessor {
@@ -20,10 +24,22 @@ export interface CustomProcessor {
   antutuScore: number;
   coreCount: number;
   clockSpeed: number; // in GHz
-  manufacturingCost: number; // Cost to use this processor in a phone
-  researchCost: number; // One-time cost to unlock/develop
+  manufacturingCost: number; // Cost to use this processor in a phone, estimated by AI
+  researchCost: number; // One-time cost to unlock/develop, estimated by AI
   type: 'custom_processor'; // To distinguish from predefined ones
 }
+
+export interface CustomDisplay {
+  id: string;
+  name: string;
+  resolutionCategory: string; // e.g., 'fhd', 'qhd'
+  technology: string; // e.g., 'oled', 'ltpo_oled'
+  refreshRate: number; // e.g., 90, 120
+  manufacturingCost: number; // Estimated by AI
+  researchCost: number; // Estimated by AI
+  type: 'custom_display';
+}
+
 
 export interface PhoneComponent {
   id: string;
@@ -39,7 +55,7 @@ export interface PhoneDesign {
   id:string; // Unique identifier for the phone
   name: string; // User-defined name for the phone
   processor: string; // Can be a value from PROCESSOR_OPTIONS or custom_proc_<id>
-  displayType: string;
+  displayType: string; // Can be value from DISPLAY_OPTIONS or custom_display_<id>
   ram: number; // in GB
   storage: number; // in GB
   cameraResolution: number; // in MP for main camera
@@ -151,13 +167,34 @@ export const PROCESSOR_OPTIONS: PhoneComponent = {
 
 export const DISPLAY_OPTIONS: PhoneComponent = {
   id: 'display', name: 'displayTypeLabel', type: 'display', options: [
-    { value: 'lcd_hd', label: 'LCD HD (720p)', cost: 30 },
-    { value: 'lcd_fhd', label: 'LCD FHD (1080p)', cost: 50 },
-    { value: 'oled_fhd', label: 'OLED FHD (1080p)', cost: 80 },
-    { value: 'oled_qhd', label: 'OLED QHD (1440p)', cost: 120 },
-    { value: 'ltpo_oled_qhd', label: 'LTPO OLED QHD (1440p Adaptive)', cost: 150 },
+    { value: 'lcd_hd', label: 'LCD HD (720p)', cost: 30, resolutionCategory: 'hd', technology: 'lcd', refreshRateValue: 60 },
+    { value: 'lcd_fhd', label: 'LCD FHD (1080p)', cost: 50, resolutionCategory: 'fhd', technology: 'lcd', refreshRateValue: 60 },
+    { value: 'oled_fhd', label: 'OLED FHD (1080p)', cost: 80, resolutionCategory: 'fhd', technology: 'oled', refreshRateValue: 60 },
+    { value: 'oled_qhd', label: 'OLED QHD (1440p)', cost: 120, resolutionCategory: 'qhd', technology: 'oled', refreshRateValue: 90 },
+    { value: 'ltpo_oled_qhd', label: 'LTPO OLED QHD (1440p Adaptive)', cost: 150, resolutionCategory: 'qhd', technology: 'ltpo_oled', refreshRateValue: 120 },
   ]
 };
+
+// For R&D Page Custom Display Creation
+export const DISPLAY_RESOLUTION_CATEGORIES_RD = [
+    { value: 'hd', label: 'displayResolution_hd' }, // 720p
+    { value: 'fhd', label: 'displayResolution_fhd' }, // 1080p
+    { value: 'qhd', label: 'displayResolution_qhd' }, // 1440p
+];
+
+export const DISPLAY_TECHNOLOGIES_RD = [
+    { value: 'lcd', label: 'displayTechnology_lcd' },
+    { value: 'oled', label: 'displayTechnology_oled' },
+    { value: 'ltpo_oled', label: 'displayTechnology_ltpo_oled' },
+];
+
+export const DISPLAY_REFRESH_RATES_RD = [
+    { value: 60, label: '60Hz' },
+    { value: 90, label: '90Hz' },
+    { value: 120, label: '120Hz' },
+    { value: 144, label: '144Hz' },
+];
+
 
 export const MATERIAL_OPTIONS: PhoneComponent = {
   id: 'material', name: 'materialLabel', type: 'material', options: [
@@ -256,6 +293,7 @@ export const LOCAL_STORAGE_AVAILABLE_CONTRACTS_KEY = 'gadgetTycoon_availableCont
 export const LOCAL_STORAGE_ACCEPTED_CONTRACTS_KEY = 'gadgetTycoon_acceptedContracts';
 export const LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY = 'gadgetTycoon_lastMarketSimulation';
 export const LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY = 'gadgetTycoon_customProcessors';
+export const LOCAL_STORAGE_CUSTOM_DISPLAYS_KEY = 'gadgetTycoon_customDisplays';
 
 
 export const SALE_MARKUP_FACTOR = 1.5;

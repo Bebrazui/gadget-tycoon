@@ -31,10 +31,10 @@ import {
   REFRESH_RATE_OPTIONS, WATER_RESISTANCE_OPTIONS, SIM_SLOT_OPTIONS, NFC_COST, OIS_COST,
   OPERATING_SYSTEM_OPTIONS, FRONT_CAMERA_COST_PER_MP, SCREEN_SIZE_COST_FACTOR,
   ULTRAWIDE_COST_PER_MP, TELEPHOTO_COST_PER_MP, TELEPHOTO_ZOOM_OPTIONS, VIDEO_RESOLUTION_OPTIONS,
-  type PhoneDesign, type PhoneComponentOption, type GameStats, type Transaction, type CustomProcessor,
+  type PhoneDesign, type PhoneComponentOption, type GameStats, type Transaction, type CustomProcessor, type CustomDisplay,
   LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY,
   INITIAL_FUNDS, BASE_DESIGN_ASSEMBLY_COST, SALE_MARKUP_FACTOR,
-  XP_FOR_DESIGNING_PHONE, calculateXpToNextLevel, LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY
+  XP_FOR_DESIGNING_PHONE, calculateXpToNextLevel, LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY, LOCAL_STORAGE_CUSTOM_DISPLAYS_KEY
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/hooks/useTranslation';
@@ -80,8 +80,9 @@ export default function DesignPhonePage() {
   const [isGeneratingReview, setIsGeneratingReview] = useState(false);
   const [reviewState, setReviewState] = useState<GenerateReviewFormState | null>(null);
   const [customProcessors, setCustomProcessors] = useState<CustomProcessor[]>([]);
+  const [customDisplays, setCustomDisplays] = useState<CustomDisplay[]>([]);
 
-  const defaultValues: PhoneDesignFormData = useMemo(() => ({ // Memoize defaultValues
+  const defaultValues: PhoneDesignFormData = useMemo(() => ({ 
     name: '',
     processor: PROCESSOR_OPTIONS.options?.[0].value || '',
     displayType: DISPLAY_OPTIONS.options?.[0].value || '',
@@ -117,81 +118,104 @@ export default function DesignPhonePage() {
 
   const watchedValues = watch();
 
-  const loadCustomProcessors = useCallback(() => {
-    const stored = localStorage.getItem(LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as CustomProcessor[];
+  const loadCustomComponents = useCallback(() => {
+    const storedProcs = localStorage.getItem(LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY);
+    if (storedProcs) try { 
+        const parsed = JSON.parse(storedProcs) as CustomProcessor[];
         setCustomProcessors(parsed);
-        // If default processor value is no longer valid (e.g. after a reset/change), set to first available
-        const currentProcessorValue = getValues("processor");
-        const allProcOptions = [
-          ...(PROCESSOR_OPTIONS.options || []),
-          ...parsed.map(cp => ({ value: `custom_proc_${cp.id}`, label: cp.name, cost: cp.manufacturingCost }))
-        ];
-        if (!allProcOptions.find(opt => opt.value === currentProcessorValue) && allProcOptions.length > 0) {
-          setValue("processor", allProcOptions[0].value);
-        }
+         const currentProcValue = getValues("processor");
+         const allProcOpts = [...(PROCESSOR_OPTIONS.options || []), ...parsed.map(cp => ({ value: cp.id, label: cp.name, cost: cp.manufacturingCost }))];
+         if (!allProcOpts.find(opt => opt.value === currentProcValue) && allProcOpts.length > 0) setValue("processor", allProcOpts[0].value);
+    } catch (e) { console.error(t('localStorageErrorCustomProcessorsConsole'), e); setCustomProcessors([]); }
 
-      } catch (e) {
-        console.error(t('localStorageErrorCustomProcessorsConsole'), e);
-        setCustomProcessors([]);
-      }
-    } else {
-        setCustomProcessors([]);
-    }
+    const storedDisplays = localStorage.getItem(LOCAL_STORAGE_CUSTOM_DISPLAYS_KEY);
+    if (storedDisplays) try { 
+        const parsed = JSON.parse(storedDisplays) as CustomDisplay[];
+        setCustomDisplays(parsed);
+        const currentDisplayValue = getValues("displayType");
+        const allDisplayOpts = [...(DISPLAY_OPTIONS.options || []), ...parsed.map(cd => ({ value: cd.id, label: cd.name, cost: cd.manufacturingCost }))];
+        if (!allDisplayOpts.find(opt => opt.value === currentDisplayValue) && allDisplayOpts.length > 0) setValue("displayType", allDisplayOpts[0].value);
+    } catch (e) { console.error(t('localStorageErrorCustomDisplaysConsole'), e); setCustomDisplays([]); }
   }, [t, getValues, setValue]);
 
+
   useEffect(() => {
-    loadCustomProcessors();
-    window.addEventListener('customProcessorsChanged', loadCustomProcessors);
-    return () => window.removeEventListener('customProcessorsChanged', loadCustomProcessors);
-  }, [loadCustomProcessors]);
+    loadCustomComponents();
+    const handleCustomComponentsChanged = () => loadCustomComponents();
+    window.addEventListener('customProcessorsChanged', handleCustomComponentsChanged);
+    window.addEventListener('customDisplaysChanged', handleCustomComponentsChanged);
+    return () => {
+        window.removeEventListener('customProcessorsChanged', handleCustomComponentsChanged);
+        window.removeEventListener('customDisplaysChanged', handleCustomComponentsChanged);
+    };
+  }, [loadCustomComponents]);
 
 
   const allProcessorOptions = useMemo(() => {
     const predefined = PROCESSOR_OPTIONS.options?.map(opt => ({ ...opt, label: t(opt.label) || opt.label })) || [];
     const custom = customProcessors.map(cp => ({
-        value: `custom_proc_${cp.id}`,
-        label: `${cp.name} (Custom)`, // Indicate it's a custom processor
+        value: cp.id, // Use cp.id which starts with custom_proc_
+        label: `${cp.name} (Custom)`,
         cost: cp.manufacturingCost,
         antutuScore: cp.antutuScore,
         coreCount: cp.coreCount,
         clockSpeed: cp.clockSpeed
     }));
     return [...predefined, ...custom];
-  }, [PROCESSOR_OPTIONS.options, customProcessors, t]);
+  }, [customProcessors, t]);
+
+  const allDisplayOptions = useMemo(() => {
+    const predefined = DISPLAY_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label})) || [];
+    const custom = customDisplays.map(cd => ({
+      value: cd.id, // Use cd.id which starts with custom_display_
+      label: t('customDisplayLabel', {name: cd.name}),
+      cost: cd.manufacturingCost,
+      resolutionCategory: cd.resolutionCategory,
+      technology: cd.technology,
+      refreshRateValue: cd.refreshRate,
+    }));
+    return [...predefined, ...custom];
+  }, [customDisplays, t]);
 
 
-  const getOptionCost = useCallback((optionsArray: PhoneComponentOption[] | undefined, value: string, componentType?: 'processor'): number => {
+  const getOptionCost = useCallback((value: string, componentType: 'processor' | 'display'): number => {
     if (componentType === 'processor') {
         const selectedProc = allProcessorOptions.find(opt => opt.value === value);
         return selectedProc?.cost || 0;
     }
+    if (componentType === 'display') {
+        const selectedDisplay = allDisplayOptions.find(opt => opt.value === value);
+        return selectedDisplay?.cost || 0;
+    }
+    // Fallback for other types if ever needed, or for predefined options
+    const optionsArray = 
+        componentType === 'processor' ? PROCESSOR_OPTIONS.options : 
+        componentType === 'display' ? DISPLAY_OPTIONS.options : 
+        []; // Add other component types here if necessary
     return optionsArray?.find(opt => opt.value === value)?.cost || 0;
-  }, [allProcessorOptions]);
+  }, [allProcessorOptions, allDisplayOptions]);
 
   const calculateCosts = useCallback(() => {
     let unitCost = 0;
-    unitCost += getOptionCost(undefined, watchedValues.processor, 'processor');
-    unitCost += getOptionCost(DISPLAY_OPTIONS.options, watchedValues.displayType);
-    unitCost += getOptionCost(MATERIAL_OPTIONS.options, watchedValues.material);
+    unitCost += getOptionCost(watchedValues.processor, 'processor');
+    unitCost += getOptionCost(watchedValues.displayType, 'display');
+    unitCost += MATERIAL_OPTIONS.options?.find(opt => opt.value === watchedValues.material)?.cost || 0;
     unitCost += watchedValues.ram * RAM_COST_PER_GB;
     unitCost += watchedValues.storage * STORAGE_COST_PER_GB;
     unitCost += watchedValues.cameraResolution * CAMERA_COST_PER_MP;
     unitCost += (watchedValues.batteryCapacity / 100) * BATTERY_COST_PER_100MAH;
     unitCost += (watchedValues.screenSize - 5.0) * SCREEN_SIZE_COST_FACTOR;
-    unitCost += getOptionCost(REFRESH_RATE_OPTIONS.options, watchedValues.refreshRate);
-    unitCost += getOptionCost(WATER_RESISTANCE_OPTIONS.options, watchedValues.waterResistance);
-    unitCost += getOptionCost(SIM_SLOT_OPTIONS.options, watchedValues.simSlots);
+    unitCost += REFRESH_RATE_OPTIONS.options?.find(opt => opt.value === watchedValues.refreshRate)?.cost || 0;
+    unitCost += WATER_RESISTANCE_OPTIONS.options?.find(opt => opt.value === watchedValues.waterResistance)?.cost || 0;
+    unitCost += SIM_SLOT_OPTIONS.options?.find(opt => opt.value === watchedValues.simSlots)?.cost || 0;
     if (watchedValues.nfcSupport) unitCost += NFC_COST;
     if (watchedValues.hasOIS) unitCost += OIS_COST;
-    unitCost += getOptionCost(OPERATING_SYSTEM_OPTIONS.options, watchedValues.operatingSystem);
+    unitCost += OPERATING_SYSTEM_OPTIONS.options?.find(opt => opt.value === watchedValues.operatingSystem)?.cost || 0;
     unitCost += watchedValues.frontCameraResolution * FRONT_CAMERA_COST_PER_MP;
     if (watchedValues.ultrawideCameraMP > 0) unitCost += watchedValues.ultrawideCameraMP * ULTRAWIDE_COST_PER_MP;
     if (watchedValues.telephotoCameraMP > 0) unitCost += watchedValues.telephotoCameraMP * TELEPHOTO_COST_PER_MP;
-    unitCost += getOptionCost(TELEPHOTO_ZOOM_OPTIONS.options, watchedValues.telephotoZoom);
-    unitCost += getOptionCost(VIDEO_RESOLUTION_OPTIONS.options, watchedValues.videoResolution);
+    unitCost += TELEPHOTO_ZOOM_OPTIONS.options?.find(opt => opt.value === watchedValues.telephotoZoom)?.cost || 0;
+    unitCost += VIDEO_RESOLUTION_OPTIONS.options?.find(opt => opt.value === watchedValues.videoResolution)?.cost || 0;
 
     unitCost += BASE_DESIGN_ASSEMBLY_COST;
 
@@ -303,18 +327,19 @@ export default function DesignPhonePage() {
       setIsGeneratingReview(true);
       
       let processorNameForReview = data.processor;
-      if(data.processor.startsWith('custom_proc_')) {
-        const customProc = customProcessors.find(cp => `custom_proc_${cp.id}` === data.processor);
-        processorNameForReview = customProc ? customProc.name : data.processor;
-      } else {
-        processorNameForReview = PROCESSOR_OPTIONS.options?.find(opt => opt.value === data.processor)?.label || data.processor;
-        processorNameForReview = t(processorNameForReview); // Translate if it's a key
-      }
+      const selectedProcOption = allProcessorOptions.find(opt => opt.value === data.processor);
+      processorNameForReview = selectedProcOption ? selectedProcOption.label : data.processor;
 
+
+      let displayTypeForReview = data.displayType;
+      const selectedDisplayOption = allDisplayOptions.find(opt => opt.value === data.displayType);
+      displayTypeForReview = selectedDisplayOption ? selectedDisplayOption.label : data.displayType;
+      
       const reviewInputData = { 
         ...data, 
         unitManufacturingCost: currentUnitCost,
-        processor: processorNameForReview 
+        processor: processorNameForReview,
+        displayType: displayTypeForReview,
       };
       const reviewResult = await getPhoneDesignReview(reviewInputData);
       setReviewState(reviewResult);
@@ -356,7 +381,7 @@ export default function DesignPhonePage() {
     core: [
       { name: "name" as keyof PhoneDesignFormData, labelKey: 'phoneNameLabel', icon: Edit3, componentType: "Input", inputType: "text"},
       { name: "processor" as keyof PhoneDesignFormData, labelKey: 'processorLabel', icon: HardDrive, componentType: "Select", options: allProcessorOptions },
-      { name: "displayType" as keyof PhoneDesignFormData, labelKey: 'displayTypeLabel', icon: Smartphone, componentType: "Select", options: DISPLAY_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label })) },
+      { name: "displayType" as keyof PhoneDesignFormData, labelKey: 'displayTypeLabel', icon: Smartphone, componentType: "Select", options: allDisplayOptions },
       { name: "ram" as keyof PhoneDesignFormData, labelKey: 'ramLabel', icon: HardDrive, componentType: "Slider", min: 2, max: 32, step: 2, unit: "GB" },
       { name: "storage" as keyof PhoneDesignFormData, labelKey: 'storageLabel', icon: HardDrive, componentType: "Slider", min: 32, max: 2048, step: 32, unit: "GB" },
       { name: "batteryCapacity" as keyof PhoneDesignFormData, labelKey: 'batteryCapacityLabel', icon: Zap, componentType: "Slider", min: 2000, max: 10000, step: 100, unit: "mAh" },
@@ -388,7 +413,7 @@ export default function DesignPhonePage() {
     production: [
       { name: "productionQuantity" as keyof PhoneDesignFormData, labelKey: 'productionQuantityLabel', icon: Package, componentType: "Slider", min: 1, max: 10000, step: 1, unit: t('productionQuantityUnit')},
     ]
-  }), [t, allProcessorOptions]);
+  }), [t, allProcessorOptions, allDisplayOptions]);
 
   const accordionItems = useMemo(() => [
     { value: "core", titleKey: "accordion_coreComponents", fields: formFields.core },
@@ -467,7 +492,7 @@ export default function DesignPhonePage() {
                                     let val: string | number = e.target.value;
                                     if (field.inputType === 'number') {
                                         val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                                        if (isNaN(val as number) && e.target.value !== '') val = 0;
+                                        if (isNaN(val as number) && e.target.value !== '') val = 0; // Handle non-numeric input for numbers
                                     }
                                     commonProps.onChange(val);
                                   }}
@@ -545,9 +570,9 @@ export default function DesignPhonePage() {
             >
               <div className="w-full h-full bg-background rounded-sm flex flex-col items-center justify-center text-center p-1">
                  <Smartphone className="w-10 h-10 text-muted-foreground mb-1" />
-                 <p className="text-[0.6rem] leading-tight text-muted-foreground">{(allProcessorOptions.find(o=>o.value === watchedValues.processor)?.label || '').split(' ')[0]}</p>
+                 <p className="text-[0.6rem] leading-tight text-muted-foreground">{(allProcessorOptions.find(o=>o.value === watchedValues.processor)?.label || '').split(' (')[0]}</p>
                  <p className="text-[0.6rem] leading-tight text-muted-foreground">{watchedValues.ram}GB RAM, {watchedValues.storage}GB</p>
-                 <p className="text-[0.6rem] leading-tight text-muted-foreground">{watchedValues.screenSize}" {(DISPLAY_OPTIONS.options?.find(o=>o.value === watchedValues.displayType)?.label || '').split(' ')[0]}</p>
+                 <p className="text-[0.6rem] leading-tight text-muted-foreground">{watchedValues.screenSize}" {(allDisplayOptions.find(o=>o.value === watchedValues.displayType)?.label || '').split(' (')[0]}</p>
                  <p className="text-[0.5rem] leading-tight text-muted-foreground">
                     Main: {watchedValues.cameraResolution}MP {watchedValues.hasOIS ? '(OIS)' : ''}
                     {watchedValues.ultrawideCameraMP > 0 ? `, UW: ${watchedValues.ultrawideCameraMP}MP` : ''}
@@ -559,13 +584,13 @@ export default function DesignPhonePage() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground mt-3 text-center">
-              {`${(MATERIAL_OPTIONS.options?.find(o=>o.value === watchedValues.material)?.label || '')}, ${(COLOR_OPTIONS.find(c => c.value === watchedValues.color)?.label || t('customColor'))}`}
+              {`${(MATERIAL_OPTIONS.options?.find(o=>o.value === watchedValues.material)?.label ? t(MATERIAL_OPTIONS.options?.find(o=>o.value === watchedValues.material)?.label || '') : '')}, ${(COLOR_OPTIONS.find(c => c.value === watchedValues.color)?.label ? t(COLOR_OPTIONS.find(c => c.value === watchedValues.color)?.label || '') : t('customColor'))}`}
             </p>
             <p className="text-xs text-muted-foreground text-center">
               {`${watchedValues.height || 160}mm x ${watchedValues.width || 75}mm x ${watchedValues.thickness || 8}mm`}
             </p>
              {watchedValues.nfcSupport && <p className="text-xs text-muted-foreground text-center flex items-center mt-1"><SmartphoneNfc className="w-3 h-3 mr-1"/>NFC</p>}
-             <p className="text-xs text-muted-foreground text-center mt-1">{WATER_RESISTANCE_OPTIONS.options?.find(o=>o.value === watchedValues.waterResistance)?.label}</p>
+             <p className="text-xs text-muted-foreground text-center mt-1">{t(WATER_RESISTANCE_OPTIONS.options?.find(o=>o.value === watchedValues.waterResistance)?.label || '')}</p>
           </CardContent>
         </Card>
         {reviewState && (
