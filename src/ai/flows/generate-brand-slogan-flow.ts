@@ -10,19 +10,13 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import type { Brand } from '@/lib/types';
+import { 
+    GenerateBrandSlogansInputSchema, 
+    type GenerateBrandSlogansInput, 
+    GenerateBrandSlogansOutputSchema, 
+    type GenerateBrandSlogansOutput 
+} from '@/lib/types';
 
-const GenerateBrandSlogansInputSchema = z.object({
-  brandName: z.string().describe('The name of the brand.'),
-  logoDescription: z.string().describe('A description of the brand\'s logo or visual identity concept.'),
-  marketingStrategy: z.string().describe('The chosen marketing strategy for the brand (e.g., Budget Friendly, Premium Quality, Innovation Leader).'),
-});
-export type GenerateBrandSlogansInput = z.infer<typeof GenerateBrandSlogansInputSchema>;
-
-const GenerateBrandSlogansOutputSchema = z.object({
-  slogans: z.array(z.string()).describe('A list of 3-5 catchy and relevant slogan suggestions for the brand.'),
-});
-export type GenerateBrandSlogansOutput = z.infer<typeof GenerateBrandSlogansOutputSchema>;
 
 export async function generateBrandSlogans(input: GenerateBrandSlogansInput): Promise<GenerateBrandSlogansOutput> {
   return generateBrandSlogansFlow(input);
@@ -61,3 +55,5 @@ const generateBrandSlogansFlow = ai.defineFlow(
     return output;
   }
 );
+
+    

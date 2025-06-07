@@ -10,19 +10,13 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { 
+    EstimateDisplayCostsInputSchema, 
+    type EstimateDisplayCostsInput, 
+    EstimateDisplayCostsOutputSchema, 
+    type EstimateDisplayCostsOutput 
+} from '@/lib/types';
 
-export const EstimateDisplayCostsInputSchema = z.object({
-  resolutionCategory: z.enum(['hd', 'fhd', 'qhd']).describe("The resolution category of the display (e.g., 'hd', 'fhd', 'qhd')."),
-  technology: z.enum(['lcd', 'oled', 'ltpo_oled']).describe("The display panel technology (e.g., 'lcd', 'oled', 'ltpo_oled')."),
-  refreshRate: z.number().min(60).max(240).describe('The refresh rate of the display in Hz (e.g., 60, 90, 120, 144).'),
-});
-export type EstimateDisplayCostsInput = z.infer<typeof EstimateDisplayCostsInputSchema>;
-
-export const EstimateDisplayCostsOutputSchema = z.object({
-  estimatedManufacturingCost: z.number().positive().describe('The AI-estimated manufacturing cost per unit for this display, in USD. Should be reasonable for the specs, e.g., between $10 and $200.'),
-  estimatedResearchCost: z.number().positive().describe('The AI-estimated one-time research and development cost for this display, in USD. E.g., between $500 and $50,000.'),
-});
-export type EstimateDisplayCostsOutput = z.infer<typeof EstimateDisplayCostsOutputSchema>;
 
 export async function estimateDisplayCosts(input: EstimateDisplayCostsInput): Promise<EstimateDisplayCostsOutput> {
   return estimateDisplayCostsFlow(input);
@@ -90,3 +84,5 @@ const estimateDisplayCostsFlow = ai.defineFlow(
     };
   }
 );
+
+    

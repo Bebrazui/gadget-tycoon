@@ -10,30 +10,13 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-// Removed: import type { PhoneDesign } from '@/lib/types'; // Not directly used in this flow's logic
+import { 
+    GeneratePhoneReviewInputSchema, 
+    type GeneratePhoneReviewInput, 
+    GeneratePhoneReviewOutputSchema, 
+    type GeneratePhoneReviewOutput 
+} from '@/lib/types';
 
-// Simplified input for the review, focusing on key aspects
-const GeneratePhoneReviewInputSchema = z.object({
-  phoneName: z.string().describe('The name of the phone model.'),
-  processor: z.string().describe('The processor model.'),
-  displayType: z.string().describe('The type of display technology used (e.g., OLED, LCD).'),
-  ram: z.number().describe('The amount of RAM in GB.'),
-  storage: z.number().describe('The amount of storage in GB.'),
-  cameraResolution: z.number().describe('The main camera resolution in MP.'),
-  batteryCapacity: z.number().describe('The battery capacity in mAh.'),
-  material: z.string().describe('The primary material used for the phone body (e.g., Aluminum, Plastic).'),
-  specialFeatures: z.array(z.string()).describe('A list of notable special features (e.g., High Refresh Rate, NFC, Water Resistance).'),
-  estimatedCost: z.number().describe('The estimated manufacturing cost of ONE unit of the phone.'), // Clarified this is unit cost
-});
-export type GeneratePhoneReviewInput = z.infer<typeof GeneratePhoneReviewInputSchema>;
-
-const GeneratePhoneReviewOutputSchema = z.object({
-  reviewText: z.string().describe('A concise and engaging review of the phone, highlighting pros, cons, and overall impression. Aim for 3-5 sentences.'),
-  pros: z.array(z.string()).describe('A list of positive aspects of the phone.'),
-  cons: z.array(z.string()).describe('A list of negative aspects or areas for improvement.'),
-  overallSentiment: z.enum(["Positive", "Neutral", "Negative"]).describe("The overall sentiment of the review."),
-});
-export type GeneratePhoneReviewOutput = z.infer<typeof GeneratePhoneReviewOutputSchema>;
 
 export async function generatePhoneReview(input: GeneratePhoneReviewInput): Promise<GeneratePhoneReviewOutput> {
   return generatePhoneReviewFlow(input);
@@ -91,3 +74,5 @@ const generatePhoneReviewFlow = ai.defineFlow(
     return output;
   }
 );
+
+    

@@ -1,4 +1,6 @@
 
+import { z } from 'zod';
+
 export interface Trend {
   feature: string;
   popularityRank: number;
@@ -151,6 +153,122 @@ export interface ClientContract {
   status: 'available' | 'accepted' | 'in_progress' | 'submitted' | 'completed_success' | 'completed_failed_specs' | 'completed_failed_deadline';
   acceptedDate?: string; // ISO string, set when accepted
 }
+
+// --- Genkit Flow Schemas and Types ---
+
+// For estimate-display-costs-flow.ts
+export const EstimateDisplayCostsInputSchema = z.object({
+  resolutionCategory: z.enum(['hd', 'fhd', 'qhd']).describe("The resolution category of the display (e.g., 'hd', 'fhd', 'qhd')."),
+  technology: z.enum(['lcd', 'oled', 'ltpo_oled']).describe("The display panel technology (e.g., 'lcd', 'oled', 'ltpo_oled')."),
+  refreshRate: z.number().min(60).max(240).describe('The refresh rate of the display in Hz (e.g., 60, 90, 120, 144).'),
+});
+export type EstimateDisplayCostsInput = z.infer<typeof EstimateDisplayCostsInputSchema>;
+
+export const EstimateDisplayCostsOutputSchema = z.object({
+  estimatedManufacturingCost: z.number().positive().describe('The AI-estimated manufacturing cost per unit for this display, in USD. Should be reasonable for the specs, e.g., between $10 and $200.'),
+  estimatedResearchCost: z.number().positive().describe('The AI-estimated one-time research and development cost for this display, in USD. E.g., between $500 and $50,000.'),
+});
+export type EstimateDisplayCostsOutput = z.infer<typeof EstimateDisplayCostsOutputSchema>;
+
+// For generate-brand-slogan-flow.ts
+export const GenerateBrandSlogansInputSchema = z.object({
+  brandName: z.string().describe('The name of the brand.'),
+  logoDescription: z.string().describe('A description of the brand\'s logo or visual identity concept.'),
+  marketingStrategy: z.string().describe('The chosen marketing strategy for the brand (e.g., Budget Friendly, Premium Quality, Innovation Leader).'),
+});
+export type GenerateBrandSlogansInput = z.infer<typeof GenerateBrandSlogansInputSchema>;
+
+export const GenerateBrandSlogansOutputSchema = z.object({
+  slogans: z.array(z.string()).describe('A list of 3-5 catchy and relevant slogan suggestions for the brand.'),
+});
+export type GenerateBrandSlogansOutput = z.infer<typeof GenerateBrandSlogansOutputSchema>;
+
+// For generate-contract-flow.ts
+export const GenerateClientContractInputSchema = z.object({
+  playerReputation: z.number().optional().describe("Optional player's brand reputation score (-10 to 10), to potentially influence contract difficulty/reward."),
+});
+export type GenerateClientContractInput = z.infer<typeof GenerateClientContractInputSchema>;
+
+// Zod schema for RequiredSpecs (used by ClientContractSchema)
+export const RequiredSpecsSchema = z.object({
+  minRam: z.number().optional().describe("Minimum RAM in GB. e.g., 8"),
+  maxRam: z.number().optional().describe("Maximum RAM in GB. e.g., 12"),
+  minStorage: z.number().optional().describe("Minimum storage in GB. e.g., 128"),
+  maxStorage: z.number().optional().describe("Maximum storage in GB. e.g., 256"),
+  minCameraMP: z.number().optional().describe("Minimum main camera resolution in MP. e.g., 48"),
+  maxCameraMP: z.number().optional().describe("Maximum main camera resolution in MP. e.g., 108"),
+  minBattery: z.number().optional().describe("Minimum battery capacity in mAh. e.g., 4000"),
+  maxBattery: z.number().optional().describe("Maximum battery capacity in mAh. e.g., 5000"),
+  specificMaterial: z.string().optional().describe("Specific material required. Use values like 'aluminum', 'plastic', 'glass_premium', 'titanium'. Refer to MATERIAL_OPTIONS in types.ts."),
+  specificProcessor: z.string().optional().describe("Specific processor model. Use values like 'snapdragon_8_gen_2', 'dimensity_1080'. Refer to PROCESSOR_OPTIONS in types.ts."),
+  specificDisplayType: z.string().optional().describe("Specific display type. Use values like 'oled_fhd', 'ltpo_oled_qhd'. Refer to DISPLAY_OPTIONS in types.ts."),
+  mustHaveNFC: z.boolean().optional().describe("Whether NFC support is mandatory."),
+  mustHaveOIS: z.boolean().optional().describe("Whether Optical Image Stabilization is mandatory for the main camera."),
+  minScreenSize: z.number().optional().describe("Minimum screen size in inches. e.g., 6.1"),
+  maxScreenSize: z.number().optional().describe("Maximum screen size in inches. e.g., 6.7"),
+  specificColor: z.string().optional().describe("A specific color hex code (e.g., '#000000') or a color name like 'Midnight Black'. If named, try to match COLOR_OPTIONS."),
+  maxUnitCost: z.number().optional().describe("Maximum allowed manufacturing cost per unit for the phone. e.g., 300 (USD)"),
+  targetOs: z.string().optional().describe("Target operating system. Use values like 'stock_android', 'custom_android_lite'. Refer to OPERATING_SYSTEM_OPTIONS in types.ts.")
+}).describe("Object detailing specific requirements for the phone. Only include 3-5 actual requirements, leaving others undefined. Ensure values are reasonable for a phone.");
+
+export const ClientContractSchema = z.object({
+  id: z.string().uuid().describe("A unique UUID for the contract."),
+  clientName: z.string().describe("A plausible-sounding fictional company name (e.g., 'Innovate Solutions Ltd.', 'EcoTech Mobility', 'Stark Industries - Mobile Division')."),
+  contractTitle: z.string().describe("A concise title for the contract (e.g., 'Bulk Order for Field Agents', 'Custom Device for Creative Professionals', 'Eco-Friendly Smartphone Initiative')."),
+  brief: z.string().describe("A short (2-3 sentences) client brief explaining the need or purpose of the custom phones."),
+  requiredSpecs: RequiredSpecsSchema,
+  quantity: z.number().int().min(50).max(500).describe("Number of units required, typically between 50 and 500."),
+  rewardFlatBonus: z.number().int().min(1000).max(10000).describe("A flat bonus amount (e.g., 1000 to 10000 USD) awarded upon successful completion of the contract, on top of unit sales price if applicable."),
+  penaltyFlat: z.number().int().min(500).max(5000).describe("A flat penalty amount (e.g., 500 to 5000 USD) if the contract fails due to unmet specs or missed deadline."),
+  deadlineDays: z.number().int().min(5).max(20).describe("Deadline in 'market days' (simulated game days) from the moment the contract is accepted, typically 5-20 days."),
+  status: z.enum(['available', 'accepted', 'in_progress', 'submitted', 'completed_success', 'completed_failed_specs', 'completed_failed_deadline']).default('available').describe("Initial status, always 'available'.")
+});
+// ClientContract type is already defined above, but Zod schema is here.
+
+// For generate-phone-review-flow.ts
+export const GeneratePhoneReviewInputSchema = z.object({
+  phoneName: z.string().describe('The name of the phone model.'),
+  processor: z.string().describe('The processor model.'),
+  displayType: z.string().describe('The type of display technology used (e.g., OLED, LCD).'),
+  ram: z.number().describe('The amount of RAM in GB.'),
+  storage: z.number().describe('The amount of storage in GB.'),
+  cameraResolution: z.number().describe('The main camera resolution in MP.'),
+  batteryCapacity: z.number().describe('The battery capacity in mAh.'),
+  material: z.string().describe('The primary material used for the phone body (e.g., Aluminum, Plastic).'),
+  specialFeatures: z.array(z.string()).describe('A list of notable special features (e.g., High Refresh Rate, NFC, Water Resistance).'),
+  estimatedCost: z.number().describe('The estimated manufacturing cost of ONE unit of the phone.'),
+});
+export type GeneratePhoneReviewInput = z.infer<typeof GeneratePhoneReviewInputSchema>;
+
+export const GeneratePhoneReviewOutputSchema = z.object({
+  reviewText: z.string().describe('A concise and engaging review of the phone, highlighting pros, cons, and overall impression. Aim for 3-5 sentences.'),
+  pros: z.array(z.string()).describe('A list of positive aspects of the phone.'),
+  cons: z.array(z.string()).describe('A list of negative aspects or areas for improvement.'),
+  overallSentiment: z.enum(["Positive", "Neutral", "Negative"]).describe("The overall sentiment of the review."),
+});
+export type GeneratePhoneReviewOutput = z.infer<typeof GeneratePhoneReviewOutputSchema>;
+
+// For trend-forecasting.ts
+export const TrendForecastingInputSchema = z.object({
+  marketData: z.string().describe('The current market data for phones.'),
+  competitorDevices: z.string().describe('Details of competitor devices.'),
+  componentCosts: z.string().describe('The costs of various phone components.'),
+  socialMediaBuzz: z.string().describe('The current social media buzz regarding phones.'),
+});
+export type TrendForecastingInput = z.infer<typeof TrendForecastingInputSchema>;
+
+export const TrendForecastingOutputSchema = z.object({
+  trends: z.array(
+    z.object({
+      feature: z.string().describe('The phone feature or technology.'),
+      popularityRank: z.number().describe('The rank of the feature based on popularity.'),
+      hotOrNot: z.string().describe('Whether the feature is considered hot or not.'),
+    })
+  ).describe('A ranked list of phone features and technologies based on popularity.'),
+});
+export type TrendForecastingOutput = z.infer<typeof TrendForecastingOutputSchema>;
+
+// --- End of Genkit Flow Schemas and Types ---
 
 
 export const PROCESSOR_OPTIONS: PhoneComponent = {
@@ -323,3 +441,5 @@ export const XP_FOR_RESEARCHING_COMPONENT = 30; // XP for researching a custom c
 export function calculateXpToNextLevel(level: number): number {
   return level * 100;
 }
+
+    
