@@ -90,12 +90,12 @@ export function PageHeader() {
         <SidebarTrigger />
       </div>
       <h1 className="text-xl font-semibold font-headline">{title}</h1>
-      <div className="ml-auto flex items-center gap-6"> {/* Increased gap for new elements */}
+      <div className="ml-auto flex items-center gap-6">
         {isStatsLoaded && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium">{t('levelLabelShort')}: {level}</span>
-            <div className="flex flex-col items-center w-28"> {/* Adjusted width */}
-              <Progress value={progressPercentage} className="h-2.5 w-full rounded-full" /> {/* Slightly thicker and rounded */}
+          <div className="flex items-center gap-3 border border-border rounded-md p-2 shadow-sm">
+            <span className="font-medium text-sm">{t('levelLabelShort')}: {level}</span>
+            <div className="flex flex-col items-center w-28">
+              <Progress value={progressPercentage} className="h-2.5 w-full rounded-full" />
               <span className="text-xs text-muted-foreground mt-0.5">{xp}/{xpToNext} {t('xpLabel')}</span>
             </div>
           </div>
