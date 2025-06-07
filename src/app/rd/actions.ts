@@ -1,7 +1,7 @@
 
 "use server";
 
-import { estimateProcessorCosts, type EstimateProcessorCostsInput, type EstimateProcessorCostsOutput } from "@/ai/flows/estimate-processor-costs-flow";
+// import { estimateProcessorCosts, type EstimateProcessorCostsInput, type EstimateProcessorCostsOutput } from "@/ai/flows/estimate-processor-costs-flow"; // Removed
 import { estimateDisplayCosts, type EstimateDisplayCostsInput, type EstimateDisplayCostsOutput } from "@/ai/flows/estimate-display-costs-flow";
 
 export type EstimateCostsFormState = {
@@ -12,29 +12,8 @@ export type EstimateCostsFormState = {
   type?: 'processor' | 'display';
 };
 
-
-export async function getEstimatedProcessorCostsAction(
-  input: EstimateProcessorCostsInput
-): Promise<EstimateCostsFormState> {
-  try {
-    const result = await estimateProcessorCosts(input);
-    if (result && result.estimatedManufacturingCost && result.estimatedResearchCost) {
-      return { 
-        messageKey: "costsEstimatedSuccess", 
-        estimatedManufacturingCost: result.estimatedManufacturingCost,
-        estimatedResearchCost: result.estimatedResearchCost,
-        error: false,
-        type: 'processor',
-      };
-    } else {
-      return { messageKey: "errorEstimatingCosts", error: true, type: 'processor' };
-    }
-  } catch (error) {
-    console.error("Processor cost estimation error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return { messageKey: "errorEstimatingCosts", error: true, type: 'processor' };
-  }
-}
+// Processor cost estimation is now done algorithmically on the client-side, so this action might be removed or adapted if AI estimation is ever re-introduced as an option.
+// For now, it's unused for processors.
 
 export async function getEstimatedDisplayCostsAction(
   input: EstimateDisplayCostsInput

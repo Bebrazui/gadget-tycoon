@@ -15,6 +15,7 @@ const translations: Translations = {
     trendForecasting: "Trend Forecasting",
     clientContracts: "Client Contracts",
     rd: "R&D",
+    settings: "Settings",
     viewOnGithub: "View on GitHub",
     // Page Titles
     pageTitleDashboard: "Dashboard",
@@ -26,6 +27,7 @@ const translations: Translations = {
     pageTitleTrends: "AI Trend Forecasting",
     pageTitleProcurement: "Client Contracts",
     pageTitleRD: "Research & Development",
+    pageTitleSettings: "Game Settings",
     // Dashboard Page
     welcomeTitle: "Welcome to Gadget Tycoon!",
     welcomeDescription: "Manage your tech empire, design cutting-edge phones, and conquer the market.",
@@ -190,6 +192,7 @@ const translations: Translations = {
     localStorageErrorCustomProcessorsConsole: "Error parsing 'customProcessors' from localStorage.",
     localStorageErrorCustomDisplays: "Could not load custom displays. Data might be corrupted. Please try again or reset data.",
     localStorageErrorCustomDisplaysConsole: "Error parsing 'customDisplays' from localStorage.",
+    localStorageErrorGameSettingsConsole: "Error parsing 'gameSettings' from localStorage. Using defaults.",
     noChangesMade: "No changes were made to the market listing.",
     produceMoreUnitsTitle: "Produce More Units",
     additionalUnitsToProduceLabel: "Additional Units to Produce",
@@ -417,6 +420,12 @@ const translations: Translations = {
     selectDisplayResolution: "Select resolution",
     selectDisplayTechnology: "Select technology",
     selectDisplayRefreshRate: "Select refresh rate",
+    // Settings Page
+    settingsPageTitle: "Game Settings",
+    settingsPageDesc: "Configure your game experience.",
+    onlineFeaturesLabel: "Use Online AI Features",
+    onlineFeaturesDesc: "Enable to use AI for cost estimation, reviews, etc. Disable for offline mode (uses local algorithms).",
+    settingsSaved: "Settings saved!",
     // General UI
     languageLabel: "Language",
     logOut: "Log out",
@@ -450,6 +459,7 @@ const translations: Translations = {
     trendForecasting: "Прогноз трендов",
     clientContracts: "Контракты клиентов",
     rd: "НИОКР",
+    settings: "Настройки",
     viewOnGithub: "Посмотреть на GitHub",
     // Page Titles
     pageTitleDashboard: "Панель управления",
@@ -461,6 +471,7 @@ const translations: Translations = {
     pageTitleTrends: "Прогнозирование трендов (ИИ)",
     pageTitleProcurement: "Контракты клиентов",
     pageTitleRD: "Исследования и Разработка",
+    pageTitleSettings: "Настройки Игры",
     // Dashboard Page
     welcomeTitle: "Добро пожаловать в Gadget Tycoon!",
     welcomeDescription: "Управляйте своей технологической империей, создавайте передовые телефоны и покоряйте рынок.",
@@ -625,6 +636,7 @@ const translations: Translations = {
     localStorageErrorCustomProcessorsConsole: "Ошибка парсинга 'customProcessors' из localStorage.",
     localStorageErrorCustomDisplays: "Не удалось загрузить пользовательские дисплеи. Данные могут быть повреждены. Попробуйте еще раз или сбросьте данные.",
     localStorageErrorCustomDisplaysConsole: "Ошибка парсинга 'customDisplays' из localStorage.",
+    localStorageErrorGameSettingsConsole: "Ошибка парсинга 'gameSettings' из localStorage. Используются значения по умолчанию.",
     noChangesMade: "Изменений в рыночном предложении не внесено.",
     produceMoreUnitsTitle: "Произвести еще единиц",
     additionalUnitsToProduceLabel: "Дополнительное количество для производства",
@@ -852,6 +864,12 @@ const translations: Translations = {
     selectDisplayResolution: "Выберите разрешение",
     selectDisplayTechnology: "Выберите технологию",
     selectDisplayRefreshRate: "Выберите частоту обновления",
+     // Settings Page
+    settingsPageTitle: "Настройки Игры",
+    settingsPageDesc: "Настройте свой игровой опыт.",
+    onlineFeaturesLabel: "Использовать онлайн ИИ-функции",
+    onlineFeaturesDesc: "Включите для использования ИИ для оценки стоимости, обзоров и т.д. Отключите для офлайн-режима (используются локальные алгоритмы).",
+    settingsSaved: "Настройки сохранены!",
     // General UI
     languageLabel: "Язык",
     logOut: "Выйти",

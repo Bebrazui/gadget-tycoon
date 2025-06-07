@@ -19,7 +19,8 @@ import {
   Github,
   ListChecks,
   Briefcase,
-  FlaskConical, // Added for R&D
+  FlaskConical, 
+  Settings, // Added for Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -38,6 +39,7 @@ export function SidebarItems() {
     { href: '/market', labelKey: 'marketAnalysis', icon: LineChart },
     { href: '/financials', labelKey: 'financials', icon: Banknote },
     { href: '/trends', labelKey: 'trendForecasting', icon: Brain },
+    { href: '/settings', labelKey: 'settings', icon: Settings },
   ];
 
   return (

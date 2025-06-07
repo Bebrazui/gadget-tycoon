@@ -24,8 +24,8 @@ export interface CustomProcessor {
   antutuScore: number;
   coreCount: number;
   clockSpeed: number; // in GHz
-  manufacturingCost: number; // Cost to use this processor in a phone, estimated by AI
-  researchCost: number; // One-time cost to unlock/develop, estimated by AI
+  manufacturingCost: number; // Cost to use this processor in a phone, calculated algorithmically
+  researchCost: number; // One-time cost to unlock/develop, calculated algorithmically
   type: 'custom_processor'; // To distinguish from predefined ones
 }
 
@@ -35,8 +35,8 @@ export interface CustomDisplay {
   resolutionCategory: string; // e.g., 'fhd', 'qhd'
   technology: string; // e.g., 'oled', 'ltpo_oled'
   refreshRate: number; // e.g., 90, 120
-  manufacturingCost: number; // Estimated by AI
-  researchCost: number; // Estimated by AI
+  manufacturingCost: number; // Estimated by AI or algorithm
+  researchCost: number; // Estimated by AI or algorithm
   type: 'custom_display';
 }
 
@@ -111,6 +111,11 @@ export interface GameStats {
   level: number;
   xp: number;
 }
+
+export interface GameSettings {
+  useOnlineFeatures: boolean; // true for AI, false for local algorithms
+}
+
 
 export interface RequiredSpecs {
   minRam?: number;
@@ -294,6 +299,7 @@ export const LOCAL_STORAGE_ACCEPTED_CONTRACTS_KEY = 'gadgetTycoon_acceptedContra
 export const LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY = 'gadgetTycoon_lastMarketSimulation';
 export const LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY = 'gadgetTycoon_customProcessors';
 export const LOCAL_STORAGE_CUSTOM_DISPLAYS_KEY = 'gadgetTycoon_customDisplays';
+export const LOCAL_STORAGE_GAME_SETTINGS_KEY = 'gadgetTycoon_gameSettings';
 
 
 export const SALE_MARKUP_FACTOR = 1.5;

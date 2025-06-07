@@ -1,4 +1,9 @@
 
+// This file is no longer used as processor cost estimation is done algorithmically
+// on the client-side in src/app/rd/page.tsx.
+// It's kept here for reference or if AI estimation is re-introduced as an option later.
+
+/*
 'use server';
 /**
  * @fileOverview Estimates manufacturing and research costs for a custom processor.
@@ -6,10 +11,10 @@
  * - estimateProcessorCosts - A function that takes processor specs and returns estimated costs.
  * - EstimateProcessorCostsInput - The input type.
  * - EstimateProcessorCostsOutput - The return type.
- */
+ * /
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z}from 'genkit';
 
 export const EstimateProcessorCostsInputSchema = z.object({
   antutuScore: z.number().min(10000).max(5000000).describe('The Antutu benchmark score of the processor, indicating its performance tier.'),
@@ -87,3 +92,5 @@ const estimateProcessorCostsFlow = ai.defineFlow(
     };
   }
 );
+*/
+void 0; // Keep TypeScript happy with an empty file if all content is commented out
