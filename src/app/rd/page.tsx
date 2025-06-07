@@ -37,9 +37,9 @@ import { useSettings } from '@/context/SettingsContext'; // Import useSettings
 // Zod Schemas
 const customProcessorSchema = z.object({
     name: z.string().min(3, "validation_min3chars").max(50, "validation_max50chars"),
-    antutuScore: z.number({invalid_type_error: "validation_required"}).min(100000, "validation_minValue").max(5000000, "validation_maxValue"),
-    coreCount: z.number({invalid_type_error: "validation_required"}).min(2, "validation_minValue").max(16, "validation_maxValue").int(),
-    clockSpeed: z.number({invalid_type_error: "validation_required"}).min(1.0, "validation_minValue").max(5.0, "validation_maxValue"),
+    antutuScore: z.number({invalid_type_error: "validation_required", required_error: "validation_required"}).min(100000, "validation_minValue").max(5000000, "validation_maxValue"),
+    coreCount: z.number({invalid_type_error: "validation_required", required_error: "validation_required"}).min(2, "validation_minValue").max(16, "validation_maxValue").int(),
+    clockSpeed: z.number({invalid_type_error: "validation_required", required_error: "validation_required"}).min(1.0, "validation_minValue").max(5.0, "validation_maxValue"),
 });
 type CustomProcessorFormData = z.infer<typeof customProcessorSchema>;
 
@@ -52,7 +52,12 @@ const customDisplaySchema = z.object({
 type CustomDisplayFormData = z.infer<typeof customDisplaySchema>;
 
 // Algorithmic cost calculation for Processors
-const calculateAlgorithmicProcessorCosts = (data: CustomProcessorFormData): { manufacturingCost: number; researchCost: number } => {
+const calculateAlgorithmicProcessorCosts = (data: Partial<CustomProcessorFormData>): { manufacturingCost: number; researchCost: number } | null => {
+    if (data.antutuScore === undefined || data.coreCount === undefined || data.clockSpeed === undefined || 
+        data.antutuScore < 100000 || data.coreCount < 2 || data.clockSpeed < 1.0) {
+        return null; // Not enough data or invalid data to calculate
+    }
+
     let mfgCost = 10; // Base manufacturing cost
     mfgCost += data.antutuScore / 40000; // Antutu score contribution
     mfgCost += data.coreCount * 4;       // Core count contribution
@@ -87,7 +92,8 @@ const calculateAlgorithmicDisplayCosts = (data: CustomDisplayFormData): { manufa
 export default function RDPage() {
     const { t } = useTranslation();
     const { toast } = useToast();
-    const { isOnlineMode } = useSettings(); // Get online/offline mode
+    const { settings } = useSettings(); 
+    const isOnlineMode = settings.useOnlineFeatures;
     const [activeTab, setActiveTab] = useState("processors");
 
     // Processors State
@@ -104,19 +110,15 @@ export default function RDPage() {
     // Processor Form
     const { control: procControl, handleSubmit: handleProcSubmit, reset: resetProcForm, formState: { errors: procErrors }, getValues: getProcValues, watch: watchProc } = useForm<CustomProcessorFormData>({
         resolver: zodResolver(customProcessorSchema),
-        defaultValues: { name: '', antutuScore: 1000000, coreCount: 8, clockSpeed: 2.5 },
+        defaultValues: { name: '', antutuScore: undefined, coreCount: undefined, clockSpeed: undefined },
+        mode: "onBlur" 
     });
-    const watchedProcFormValues = watchProc(); // Watch all fields for processors
+    const watchedProcFormValues = watchProc(); 
 
     useEffect(() => {
-        // Automatically calculate processor costs when relevant fields change
-        if (watchedProcFormValues.antutuScore && watchedProcFormValues.coreCount && watchedProcFormValues.clockSpeed) {
-            const costs = calculateAlgorithmicProcessorCosts(watchedProcFormValues);
-            setEstimatedProcessorCosts({mfg: costs.manufacturingCost, res: costs.researchCost});
-        } else {
-            setEstimatedProcessorCosts(null);
-        }
-    }, [watchedProcFormValues]);
+        const costs = calculateAlgorithmicProcessorCosts(watchedProcFormValues);
+        setEstimatedProcessorCosts(costs);
+    }, [watchedProcFormValues.antutuScore, watchedProcFormValues.coreCount, watchedProcFormValues.clockSpeed, watchedProcFormValues]);
 
 
     // Display Form
@@ -125,7 +127,15 @@ export default function RDPage() {
         defaultValues: { name: '', resolutionCategory: DISPLAY_RESOLUTION_CATEGORIES_RD[1]?.value || '', technology: DISPLAY_TECHNOLOGIES_RD[1]?.value || '', refreshRate: DISPLAY_REFRESH_RATES_RD[1]?.value || 90 },
     });
     const watchedDisplayValues = useWatch({ control: displayControl });
-    useEffect(() => { setEstimatedDisplayCosts(null); }, [watchedDisplayValues]);
+    
+    useEffect(() => { 
+        setEstimatedDisplayCosts(null); 
+    }, [
+        watchedDisplayValues.name, 
+        watchedDisplayValues.resolutionCategory, 
+        watchedDisplayValues.technology, 
+        watchedDisplayValues.refreshRate
+    ]);
 
 
     const loadComponents = useCallback(() => {
@@ -149,8 +159,8 @@ export default function RDPage() {
     
 
     const onProcessorResearchSubmit = (data: CustomProcessorFormData) => {
-        if (!estimatedProcessorCosts) { // Costs are now calculated algorithmically
-            toast({ variant: "destructive", title: t('errorStatus'), description: t('errorEstimatingCosts') }); // Should not happen if form is filled
+        if (!estimatedProcessorCosts) { 
+            toast({ variant: "destructive", title: t('errorStatus'), description: t('errorEstimatingCostsProc') }); 
             return;
         }
         setIsResearchingProcessor(true);
@@ -161,7 +171,7 @@ export default function RDPage() {
         if (currentStats.level === undefined) currentStats.level = 1; if (currentStats.xp === undefined) currentStats.xp = 0;
 
         if (currentStats.totalFunds < researchCost) {
-            toast({ variant: "destructive", title: t('insufficientFundsErrorTitle'), description: t('insufficientFundsForResearchDesc', { name: data.name, researchCost: researchCost, availableFunds: currentStats.totalFunds.toFixed(2) }) });
+            toast({ variant: "destructive", title: t('insufficientFundsErrorTitle'), description: t('insufficientFundsForResearchDesc', { name: data.name, researchCost: researchCost.toFixed(2), availableFunds: currentStats.totalFunds.toFixed(2) }) });
             setIsResearchingProcessor(false); return;
         }
 
@@ -188,7 +198,8 @@ export default function RDPage() {
         window.dispatchEvent(new CustomEvent('transactionsChanged'));
 
         toast({ title: t('processorResearchedSuccessTitle'), description: t('processorResearchedSuccessDesc', { name: data.name }) });
-        resetProcForm(); setEstimatedProcessorCosts(null); // Reset form and auto-calculated costs
+        resetProcForm({ name: '', antutuScore: undefined, coreCount: undefined, clockSpeed: undefined }); 
+        setEstimatedProcessorCosts(null);
         setIsResearchingProcessor(false);
     };
 
@@ -198,26 +209,32 @@ export default function RDPage() {
         const formData = getDisplayValues();
         const inputData = { ...formData, refreshRate: Number(formData.refreshRate) };
 
+        if (!customDisplaySchema.safeParse(inputData).success) {
+            toast({ variant: "destructive", title: t('validation_failed'), description: t('fillAllDisplayFieldsError') });
+            setIsEstimatingDisplayCosts(false);
+            return;
+        }
+
+
         if (isOnlineMode) {
             const result = await getEstimatedDisplayCostsAction(inputData);
-            if (!result.error && result.estimatedManufacturingCost && result.estimatedResearchCost) {
+            if (!result.error && result.estimatedManufacturingCost !== undefined && result.estimatedResearchCost !== undefined) {
                 setEstimatedDisplayCosts({ mfg: result.estimatedManufacturingCost, res: result.estimatedResearchCost });
-                toast({ title: t('statusStatus'), description: t(result.messageKey || 'costsEstimatedSuccess') });
+                toast({ title: t('statusStatus'), description: t(result.messageKey || 'costsEstimatedSuccessDisp') });
             } else {
-                toast({ variant: "destructive", title: t('errorStatus'), description: t(result.messageKey || 'errorEstimatingCosts') });
+                toast({ variant: "destructive", title: t('errorStatus'), description: t(result.messageKey || 'errorEstimatingCostsDisp') });
             }
         } else {
-            // Offline mode: use algorithmic calculation
             const costs = calculateAlgorithmicDisplayCosts(inputData);
             setEstimatedDisplayCosts({ mfg: costs.manufacturingCost, res: costs.researchCost });
-            toast({ title: t('statusStatus'), description: t('costsEstimatedSuccess') + " (" + t('offlineMode') + ")" });
+            toast({ title: t('statusStatus'), description: t('costsEstimatedSuccessDispOffline') });
         }
         setIsEstimatingDisplayCosts(false);
     };
 
     const onDisplayResearchSubmit = (data: CustomDisplayFormData) => {
         if (!estimatedDisplayCosts) {
-            toast({ variant: "destructive", title: t('errorStatus'), description: t('errorEstimatingCosts') });
+            toast({ variant: "destructive", title: t('errorStatus'), description: t('errorEstimatingCostsDispNotDone') });
             return;
         }
         setIsResearchingDisplay(true);
@@ -225,8 +242,10 @@ export default function RDPage() {
 
         const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
         let currentStats: GameStats = statsString ? JSON.parse(statsString) : { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0, level: 1, xp: 0 };
+        if (currentStats.level === undefined) currentStats.level = 1; if (currentStats.xp === undefined) currentStats.xp = 0;
+
         if (currentStats.totalFunds < researchCost) {
-            toast({ variant: "destructive", title: t('insufficientFundsErrorTitle'), description: t('insufficientFundsForResearchDesc', { name: data.name, researchCost: researchCost, availableFunds: currentStats.totalFunds.toFixed(2) }) });
+            toast({ variant: "destructive", title: t('insufficientFundsErrorTitle'), description: t('insufficientFundsForResearchDesc', { name: data.name, researchCost: researchCost.toFixed(2), availableFunds: currentStats.totalFunds.toFixed(2) }) });
             setIsResearchingDisplay(false); return;
         }
         currentStats.totalFunds -= researchCost;
@@ -271,6 +290,12 @@ export default function RDPage() {
     return (
         <div className="space-y-8">
             <SectionTitle title={t('rdPageTitle')} description={t('rdPageDesc')} />
+             <Alert>
+                <FlaskConical className="h-4 w-4" />
+                <AlertDescription>
+                  {isOnlineMode ? t('onlineModeActiveRD') : t('offlineModeActiveRD')}
+                </AlertDescription>
+              </Alert>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-2">
@@ -295,14 +320,19 @@ export default function RDPage() {
                                         <Controller name={fieldInfo.name} control={procControl}
                                             render={({ field }) => (
                                                 <Input id={`proc-${fieldInfo.name}`} type={fieldInfo.type} placeholder={t(fieldInfo.placeholderKey)} step={fieldInfo.step}
-                                                    {...field} onChange={e => {
-                                                        const value = fieldInfo.type === 'number' ? parseFloat(e.target.value) : e.target.value;
-                                                        field.onChange(isNaN(value as number) && fieldInfo.type === 'number' ? '' : value);
-                                                     }} 
-                                                     value={field.value === 0 && fieldInfo.type === 'number' ? "" : field.value} // Show empty for 0 to allow easier input
+                                                    {...field} 
+                                                    onChange={e => {
+                                                        const rawValue = e.target.value;
+                                                        if (fieldInfo.type === 'number') {
+                                                            field.onChange(rawValue === '' ? undefined : parseFloat(rawValue));
+                                                        } else {
+                                                            field.onChange(rawValue);
+                                                        }
+                                                     }}
+                                                     value={field.value === undefined ? '' : field.value}
                                                      />
                                             )} />
-                                        {procErrors[fieldInfo.name] && <p className="text-sm text-destructive">{t(procErrors[fieldInfo.name]?.message || '', { field: t(fieldInfo.labelKey), min: (customProcessorSchema.shape[fieldInfo.name] as any)?._def?.checks?.find((c:any) => c.kind ==='min')?.value, max: (customProcessorSchema.shape[fieldInfo.name] as any)?._def?.checks?.find((c:any) => c.kind ==='max')?.value })}</p>}
+                                        {procErrors[fieldInfo.name] && <p className="text-sm text-destructive">{t(procErrors[fieldInfo.name]?.message || '', { field: t(fieldInfo.labelKey), min: (customProcessorSchema.shape[fieldInfo.name] as any)?._def?.innerType?._def?.checks?.find((c:any) => c.kind ==='min')?.value, max: (customProcessorSchema.shape[fieldInfo.name] as any)?._def?.innerType?._def?.checks?.find((c:any) => c.kind ==='max')?.value })}</p>}
                                     </div>
                                 ))}
                                 
@@ -358,7 +388,10 @@ export default function RDPage() {
                                             render={({ field }) => {
                                                 if (fieldInfo.type === 'select') {
                                                     return (
-                                                        <Select onValueChange={ (value) => field.onChange(fieldInfo.name === 'refreshRate' ? Number(value) : value) } value={String(field.value)} defaultValue={String(field.value)}>
+                                                        <Select 
+                                                            onValueChange={ (value) => field.onChange(fieldInfo.name === 'refreshRate' ? Number(value) : value) } 
+                                                            value={String(field.value)}
+                                                        >
                                                             <SelectTrigger id={`disp-${fieldInfo.name}`}><SelectValue placeholder={t(fieldInfo.placeholderKey || 'selectPlaceholder')} /></SelectTrigger>
                                                             <SelectContent>
                                                                 {fieldInfo.options?.map(opt => <SelectItem key={String(opt.value)} value={String(opt.value)}>{t(opt.label)}</SelectItem>)}
@@ -368,7 +401,7 @@ export default function RDPage() {
                                                 }
                                                 return <Input id={`disp-${fieldInfo.name}`} type={fieldInfo.type} placeholder={t(fieldInfo.placeholderKey || '')} {...field} onChange={e => field.onChange(fieldInfo.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value)} />;
                                             }} />
-                                        {displayErrors[fieldInfo.name] && <p className="text-sm text-destructive">{t(displayErrors[fieldInfo.name]?.message || '', { field: t(fieldInfo.labelKey), min: (customDisplaySchema.shape[fieldInfo.name] as any)?._def?.checks?.find((c:any) => c.kind ==='min')?.value })}</p>}
+                                        {displayErrors[fieldInfo.name] && <p className="text-sm text-destructive">{t(displayErrors[fieldInfo.name]?.message || '', { field: t(fieldInfo.labelKey), min: (customDisplaySchema.shape[fieldInfo.name] as any)?._def?.innerType?._def?.checks?.find((c:any) => c.kind ==='min')?.value })}</p>}
                                     </div>
                                 ))}
                                 <Button type="button" variant="outline" onClick={handleEstimateDisplayCosts} disabled={isEstimatingDisplayCosts || isResearchingDisplay}>
@@ -412,3 +445,6 @@ export default function RDPage() {
         </div>
     );
 }
+
+
+    
