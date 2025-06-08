@@ -79,107 +79,99 @@ function generateLocalPhoneReview(
 ): z.infer<typeof GeneratePhoneReviewOutputSchema> {
   const pros: string[] = [];
   const cons: string[] = [];
-  let sentimentScore = 0;
+  let sentimentScore = 0; // Used to determine overall sentiment
 
-  // Processor - Assuming a basic heuristic.
-  // This would ideally map processor string to a score or tier.
-  // For now, let's say high-end processors mentioned in PROCESSOR_OPTIONS are good.
+  // Processor Analysis
   const highEndProcessors = ['snapdragon_8_gen_3', 'bionic_a17_pro', 'snapdragon_8_gen_2', 'dimensity_9000_plus'];
   if (highEndProcessors.some(p => phoneDetails.processor.includes(p))) {
     pros.push(t('local_review_pro_powerful_processor', { processor: phoneDetails.processor }));
     sentimentScore += 2;
-  } else if (phoneDetails.processor.includes('budget')) {
+  } else if (phoneDetails.processor.includes('budget') || phoneDetails.processor.includes('snapdragon_680') || phoneDetails.processor.includes('helio_g99')) {
     cons.push(t('local_review_con_basic_processor', { processor: phoneDetails.processor }));
-    sentimentScore -=1;
+    sentimentScore -= 1;
   } else {
      pros.push(t('local_review_pro_decent_processor', { processor: phoneDetails.processor }));
      sentimentScore +=1;
   }
 
+  // RAM Analysis
+  if (phoneDetails.ram >= 12) { pros.push(t('local_review_pro_ample_ram', { ram: phoneDetails.ram })); sentimentScore += 1.5; }
+  else if (phoneDetails.ram >= 8) { pros.push(t('local_review_pro_good_ram', { ram: phoneDetails.ram })); sentimentScore += 1; }
+  else if (phoneDetails.ram < 6) { cons.push(t('local_review_con_low_ram', { ram: phoneDetails.ram })); sentimentScore -= 1; }
 
-  if (phoneDetails.ram >= 12) {
-    pros.push(t('local_review_pro_ample_ram', { ram: phoneDetails.ram }));
-    sentimentScore += 2;
-  } else if (phoneDetails.ram >= 8) {
-    pros.push(t('local_review_pro_good_ram', { ram: phoneDetails.ram }));
-    sentimentScore += 1;
-  } else if (phoneDetails.ram < 6) {
-    cons.push(t('local_review_con_low_ram', { ram: phoneDetails.ram }));
-    sentimentScore -= 1;
-  }
+  // Storage Analysis
+  if (phoneDetails.storage >= 512) { pros.push(t('local_review_pro_large_storage', { storage: phoneDetails.storage })); sentimentScore += 1; }
+  else if (phoneDetails.storage < 128) { cons.push(t('local_review_con_small_storage', { storage: phoneDetails.storage })); sentimentScore -=1; }
 
-  if (phoneDetails.storage >= 512) {
-    pros.push(t('local_review_pro_large_storage', { storage: phoneDetails.storage }));
-    sentimentScore += 1;
-  } else if (phoneDetails.storage < 128) {
-    cons.push(t('local_review_con_small_storage', { storage: phoneDetails.storage }));
-    sentimentScore -=1;
-  }
+  // Main Camera Analysis
+  if (phoneDetails.cameraResolution >= 64) { pros.push(t('local_review_pro_high_res_camera', { mp: phoneDetails.cameraResolution })); sentimentScore += 1; }
+  else if (phoneDetails.cameraResolution < 20) { cons.push(t('local_review_con_modest_camera', { mp: phoneDetails.cameraResolution })); sentimentScore -= 0.5; }
 
-  if (phoneDetails.cameraResolution >= 64) {
-    pros.push(t('local_review_pro_high_res_camera', { mp: phoneDetails.cameraResolution }));
-    sentimentScore += 1;
-  } else if (phoneDetails.cameraResolution < 20) {
-     cons.push(t('local_review_con_modest_camera', { mp: phoneDetails.cameraResolution }));
-     sentimentScore -=0.5;
-  }
+  // Battery Analysis
+  if (phoneDetails.batteryCapacity >= 5000) { pros.push(t('local_review_pro_large_battery', { capacity: phoneDetails.batteryCapacity })); sentimentScore += 1.5; }
+  else if (phoneDetails.batteryCapacity < 3500) { cons.push(t('local_review_con_small_battery', { capacity: phoneDetails.batteryCapacity })); sentimentScore -= 1; }
 
-  if (phoneDetails.batteryCapacity >= 5000) {
-    pros.push(t('local_review_pro_large_battery', { capacity: phoneDetails.batteryCapacity }));
-    sentimentScore += 2;
-  } else if (phoneDetails.batteryCapacity < 3500) {
-    cons.push(t('local_review_con_small_battery', { capacity: phoneDetails.batteryCapacity }));
-    sentimentScore -= 1;
-  }
-
+  // Display Refresh Rate
   if (phoneDetails.refreshRate.includes('120') || phoneDetails.refreshRate.includes('144')) {
     pros.push(t('local_review_pro_high_refresh_rate', { rate: phoneDetails.refreshRate }));
     sentimentScore += 1;
   }
 
+  // Material
   if (phoneDetails.material.includes('titanium') || phoneDetails.material.includes('glass_premium')) {
     pros.push(t('local_review_pro_premium_material', { material: phoneDetails.material }));
     sentimentScore += 1;
   }
 
-  if (phoneDetails.nfcSupport) pros.push(t('local_review_pro_nfc'));
-  if (phoneDetails.hasOIS) pros.push(t('local_review_pro_ois'));
-  if (phoneDetails.ultrawideCameraMP > 0) pros.push(t('local_review_pro_ultrawide'));
-  if (phoneDetails.telephotoCameraMP > 0) pros.push(t('local_review_pro_telephoto'));
+  // Other Features
+  if (phoneDetails.nfcSupport) { pros.push(t('local_review_pro_nfc')); sentimentScore += 0.5; }
+  if (phoneDetails.hasOIS) { pros.push(t('local_review_pro_ois')); sentimentScore += 0.5; }
+  if (phoneDetails.ultrawideCameraMP > 0) { pros.push(t('local_review_pro_ultrawide')); sentimentScore += 0.5; }
+  if (phoneDetails.telephotoCameraMP > 0) { pros.push(t('local_review_pro_telephoto')); sentimentScore += 0.5; }
 
-
-  // Cost consideration
-  if (phoneDetails.unitManufacturingCost > 0) { // Avoid division by zero
-      const valueScore = (sentimentScore * 100) / phoneDetails.unitManufacturingCost; // Arbitrary value metric
-      if (valueScore > 1.5 && phoneDetails.unitManufacturingCost < 300) { // Good value for budget/mid
-          pros.push(t('local_review_pro_good_value'));
-          sentimentScore += 1;
-      } else if (valueScore < 0.5 && phoneDetails.unitManufacturingCost > 500) { // Poor value for premium
-          cons.push(t('local_review_con_expensive'));
-          sentimentScore -= 1;
-      } else if (phoneDetails.unitManufacturingCost < 150 && sentimentScore > 0) {
-          pros.push(t('local_review_pro_affordable'));
-          sentimentScore += 0.5;
+  // Cost Consideration (Value for Money)
+  if (phoneDetails.unitManufacturingCost > 0) {
+      const valueScore = (sentimentScore * 100) / phoneDetails.unitManufacturingCost;
+      if (valueScore > 2 && phoneDetails.unitManufacturingCost < 350) { 
+          pros.push(t('local_review_pro_good_value')); sentimentScore += 1; 
+      } else if (valueScore < 0.8 && phoneDetails.unitManufacturingCost > 500) { 
+          cons.push(t('local_review_con_expensive')); sentimentScore -= 1; 
+      } else if (phoneDetails.unitManufacturingCost < 200 && sentimentScore > 0) {
+          pros.push(t('local_review_pro_affordable')); sentimentScore += 0.5;
       }
   }
 
-
+  // Determine Overall Sentiment
   let overallSentiment: "Positive" | "Neutral" | "Negative" = "Neutral";
-  if (sentimentScore > 2) overallSentiment = "Positive";
-  else if (sentimentScore < -1) overallSentiment = "Negative";
+  if (sentimentScore >= 3) overallSentiment = "Positive";
+  else if (sentimentScore <= -1.5) overallSentiment = "Negative";
 
-  const reviewTemplates = [
-    t('local_review_template1', { phoneName: phoneDetails.name, pro_feature: pros[0] || t('local_review_its_features'), con_feature: cons[0] || t('local_review_some_aspects') }),
-    t('local_review_template2', { phoneName: phoneDetails.name, overall_feel: overallSentiment.toLowerCase(), cost: phoneDetails.unitManufacturingCost.toFixed(0) }),
-    t('local_review_template3', { phoneName: phoneDetails.name, highlight: pros[1] || t('local_review_its_performance') }),
-  ];
+  // Select Review Template
+  let reviewText = "";
+  const reviewTypeRoll = Math.random();
 
-  const reviewText = reviewTemplates[Math.floor(Math.random() * reviewTemplates.length)];
+  if (reviewTypeRoll < 0.33) { // Short review
+    if (overallSentiment === "Positive") reviewText = t('local_review_short_positive', { phoneName: phoneDetails.name });
+    else if (overallSentiment === "Negative") reviewText = t('local_review_short_negative', { phoneName: phoneDetails.name });
+    else reviewText = t('local_review_short_neutral', { phoneName: phoneDetails.name });
+  } else if (reviewTypeRoll < 0.66) { // Medium review (template 1)
+    reviewText = t('local_review_template1', { 
+        phoneName: phoneDetails.name, 
+        pro_feature: pros[0] || t('local_review_its_features'), 
+        con_feature: cons[0] || t('local_review_some_aspects') 
+    });
+  } else { // Detailed review (template 2 or 3)
+     const detailedTemplates = [
+        t('local_review_template2', { phoneName: phoneDetails.name, overall_feel: t(`sentiment_${overallSentiment}`), cost: phoneDetails.unitManufacturingCost.toFixed(0) }),
+        t('local_review_template3', { phoneName: phoneDetails.name, highlight: pros[0] || t('local_review_its_performance') }),
+     ];
+     reviewText = detailedTemplates[Math.floor(Math.random() * detailedTemplates.length)];
+  }
 
   return {
-    reviewText: reviewText.slice(0, 250) + (reviewText.length > 250 ? "..." : ""), // Ensure reasonable length
-    pros: pros.slice(0, 3), // Max 3 pros
-    cons: cons.slice(0, 3), // Max 3 cons
+    reviewText: reviewText.slice(0, 300) + (reviewText.length > 300 ? "..." : ""),
+    pros: pros.slice(0, Math.max(1, Math.floor(Math.random() * 3) + 1)), // 1 to 3 pros
+    cons: cons.slice(0, Math.max(1, Math.floor(Math.random() * 2) + 1)), // 1 to 2 cons
     overallSentiment,
   };
 }
@@ -415,7 +407,6 @@ export default function DesignPhonePage() {
     localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
     window.dispatchEvent(new CustomEvent('transactionsChanged'));
 
-
     const phoneToSave: PhoneDesign = {
       ...data,
       id: Date.now().toString(),
@@ -425,15 +416,14 @@ export default function DesignPhonePage() {
       imageUrl: `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
       salePrice: parseFloat((currentUnitCost * SALE_MARKUP_FACTOR).toFixed(2)),
       quantityListedForSale: 0,
+      review: undefined, // Initialize review as undefined
+      reviewType: undefined,
     };
 
     try {
       const existingPhonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
       const existingPhones: PhoneDesign[] = existingPhonesString ? JSON.parse(existingPhonesString) : [];
-      existingPhones.push(phoneToSave);
-      localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(existingPhones));
-      window.dispatchEvent(new CustomEvent('myPhonesChanged'));
-
+      
       toast({
         title: t('phoneDesignSavedTitle'),
         description: t('phoneDesignSavedDesc', {
@@ -444,7 +434,7 @@ export default function DesignPhonePage() {
         }),
       });
 
-      // AI Review or Local Review based on settings
+      // Review Generation Logic (AI or Local with 18% chance for detailed)
       let processorNameForReview = data.processor;
       const selectedProcOption = allProcessorOptions.find(opt => opt.value === data.processor);
       processorNameForReview = selectedProcOption ? selectedProcOption.label : data.processor;
@@ -459,51 +449,67 @@ export default function DesignPhonePage() {
         processor: processorNameForReview,
         displayType: displayTypeForReview,
       };
+      
+      const reviewChance = Math.random();
+      if (reviewChance < 0.18) { // ~18% chance for a detailed review
+        if (settings.useOnlineFeatures) {
+            setIsGeneratingReview(true);
+            const reviewResult = await getPhoneDesignReview(reviewInputData);
+            setReviewState(reviewResult);
+            setIsGeneratingReview(false);
 
-
-      if (settings.useOnlineFeatures) {
-          setIsGeneratingReview(true);
-          const reviewResult = await getPhoneDesignReview(reviewInputData);
-          setReviewState(reviewResult);
-          setIsGeneratingReview(false);
-
-          if (reviewResult.review && !reviewResult.error) {
-            const phonesAfterReviewString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
-            let phonesAfterReview: PhoneDesign[] = phonesAfterReviewString ? JSON.parse(phonesAfterReviewString) : [];
-            phonesAfterReview = phonesAfterReview.map(p =>
-              p.id === phoneToSave.id ? { ...p, review: reviewResult.review?.reviewText, reviewType: 'ai' } : p
-            );
-            localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(phonesAfterReview));
-            toast({
-              title: t('aiReviewGeneratedTitle'),
-              description: t('aiReviewGeneratedDesc', {name: data.name})
+            if (reviewResult.review && !reviewResult.error) {
+              phoneToSave.review = reviewResult.review.reviewText; // Store only text part of AI review or full for local
+              (phoneToSave as any).reviewType = 'ai';
+              toast({
+                title: t('aiReviewGeneratedTitle'),
+                description: t('aiReviewGeneratedDesc', {name: data.name})
+              });
+            } else if (reviewResult.error) {
+               toast({
+                variant: "destructive",
+                title: t('aiReviewErrorTitle'),
+                description: reviewResult.message || t('aiReviewErrorDesc'),
+              });
+            }
+        } else {
+            // Generate Detailed Local Review
+            const localReview = generateLocalPhoneReview(reviewInputData, t);
+            setReviewState({
+              message: t("localReviewGeneratedTitle"),
+              review: localReview,
+              error: false,
             });
-          } else if (reviewResult.error) {
+            phoneToSave.review = localReview.reviewText;
+            (phoneToSave as any).reviewType = 'local';
              toast({
-              variant: "destructive",
-              title: t('aiReviewErrorTitle'),
-              description: reviewResult.message || t('aiReviewErrorDesc'),
-            });
-          }
+              title: t('localReviewGeneratedTitle'),
+              description: t('localReviewGeneratedDesc', {name: data.name})
+             });
+        }
       } else {
-          // Generate Local Review
-          const localReview = generateLocalPhoneReview(reviewInputData, t);
-          setReviewState({
+        // ~82% chance for a very short generic review or no review
+        const shortReviewTemplates = [
+            t('local_review_very_short_generic', {phoneName: data.name}),
+            // Add more very short positive/neutral templates here if needed
+        ];
+        phoneToSave.review = shortReviewTemplates[Math.floor(Math.random() * shortReviewTemplates.length)];
+        (phoneToSave as any).reviewType = 'local_short'; // Differentiate if needed
+        setReviewState({ // Update UI to show this short review
             message: t("localReviewGeneratedTitle"),
-            review: localReview,
-            error: false,
-          });
-           const phonesAfterReviewString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
-           let phonesAfterReview: PhoneDesign[] = phonesAfterReviewString ? JSON.parse(phonesAfterReviewString) : [];
-           phonesAfterReview = phonesAfterReview.map(p =>
-             p.id === phoneToSave.id ? { ...p, review: localReview.reviewText, reviewType: 'local' } : p
-           );
-           localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(phonesAfterReview));
-           toast({
-            title: t('localReviewGeneratedTitle'),
-            description: t('localReviewGeneratedDesc', {name: data.name})
-           });
+            review: { reviewText: phoneToSave.review!, pros: [], cons: [], overallSentiment: "Neutral" },
+            error: false
+        });
+         toast({
+          title: t('localReviewGeneratedTitle'),
+          description: t('localReviewGeneratedDesc', {name: data.name})
+         });
       }
+      
+      existingPhones.push(phoneToSave);
+      localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(existingPhones));
+      window.dispatchEvent(new CustomEvent('myPhonesChanged'));
+
       reset(defaultValues);
 
     } catch (error) {
@@ -734,10 +740,12 @@ export default function DesignPhonePage() {
              <p className="text-xs text-muted-foreground text-center mt-1">{t(WATER_RESISTANCE_OPTIONS.options?.find(o=>o.value === watchedValues.waterResistance)?.label || '')}</p>
           </CardContent>
         </Card>
-        {reviewState && (
+        {reviewState && reviewState.review && (
           <Card>
             <CardHeader>
-              <h3 className="text-2xl font-semibold leading-none tracking-tight">{settings.useOnlineFeatures ? t('aiReviewCardTitle') : t('localReviewCardTitle')}</h3>
+              <h3 className="text-2xl font-semibold leading-none tracking-tight">
+                {settings.useOnlineFeatures && reviewState.review?.pros?.length > 0 ? t('aiReviewCardTitle') : t('localReviewCardTitle')}
+              </h3>
             </CardHeader>
             <CardContent>
               {reviewState.error && (
@@ -750,24 +758,28 @@ export default function DesignPhonePage() {
               {reviewState.review && !reviewState.error && (
                 <div className="space-y-3">
                   <div>
-                    <h4 className="font-semibold">{t('reviewOverallSentiment')}: <span className={`font-normal ${reviewState.review.overallSentiment === 'Positive' ? 'text-green-500' : reviewState.review.overallSentiment === 'Negative' ? 'text-red-500' : 'text-yellow-500'}`}>{reviewState.review.overallSentiment}</span></h4>
+                    <h4 className="font-semibold">{t('reviewOverallSentiment')}: <span className={`font-normal ${reviewState.review.overallSentiment === 'Positive' ? 'text-green-500' : reviewState.review.overallSentiment === 'Negative' ? 'text-red-500' : 'text-yellow-500'}`}>{t(`sentiment_${reviewState.review.overallSentiment}`)}</span></h4>
                     <p className="text-sm text-muted-foreground italic">"{reviewState.review.reviewText}"</p>
                   </div>
-                  <div>
-                    <h4 className="font-semibold">{t('reviewPros')}:</h4>
-                    <ul className="list-disc list-inside text-sm text-muted-foreground">
-                      {reviewState.review.pros.map((pro, i) => <li key={i}>{pro}</li>)}
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold">{t('reviewCons')}:</h4>
-                    <ul className="list-disc list-inside text-sm text-muted-foreground">
-                      {reviewState.review.cons.map((con, i) => <li key={i}>{con}</li>)}
-                    </ul>
-                  </div>
+                  {reviewState.review.pros && reviewState.review.pros.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold">{t('reviewPros')}:</h4>
+                      <ul className="list-disc list-inside text-sm text-muted-foreground">
+                        {reviewState.review.pros.map((pro, i) => <li key={`pro-${i}`}>{pro}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {reviewState.review.cons && reviewState.review.cons.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold">{t('reviewCons')}:</h4>
+                      <ul className="list-disc list-inside text-sm text-muted-foreground">
+                        {reviewState.review.cons.map((con, i) => <li key={`con-${i}`}>{con}</li>)}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
-               {isGeneratingReview && !reviewState && settings.useOnlineFeatures && <p className="text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('generatingReviewMessage')}</p>}
+               {isGeneratingReview && !reviewState.review && settings.useOnlineFeatures && <p className="text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('generatingReviewMessage')}</p>}
             </CardContent>
           </Card>
         )}

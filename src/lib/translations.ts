@@ -17,7 +17,7 @@ const translations: Translations = {
     rd: "R&D",
     settings: "Settings",
     viewOnGithub: "View on GitHub",
-    customerReviews: "Customer Reviews", // New
+    customerReviews: "Customer Reviews",
     // Page Titles
     pageTitleDashboard: "Dashboard",
     pageTitleDesign: "Design New Phone",
@@ -29,7 +29,7 @@ const translations: Translations = {
     pageTitleProcurement: "Client Contracts",
     pageTitleRD: "Research & Development",
     pageTitleSettings: "Game Settings",
-    pageTitleReviews: "Customer Reviews", // New
+    pageTitleReviews: "Customer Reviews",
     // Dashboard Page
     welcomeTitle: "Welcome to Gadget Tycoon!",
     welcomeDescription: "Manage your tech empire, design cutting-edge phones, and conquer the market.",
@@ -181,6 +181,10 @@ const translations: Translations = {
     local_review_template1: "The {{phoneName}} offers a decent package. {{pro_feature}} is a highlight, though {{con_feature}} could be better. Overall, a solid choice for its target market.",
     local_review_template2: "For around ${{cost}}, the {{phoneName}} feels {{overall_feel}}. It balances cost and features, making it a contender.",
     local_review_template3: "This {{phoneName}} impresses with {{highlight}}. However, potential buyers should consider its limitations. It's a mixed bag, but interesting.",
+    local_review_short_positive: "{{phoneName}} is a good phone for its price.",
+    local_review_short_neutral: "{{phoneName}} is a decent option in its segment.",
+    local_review_short_negative: "{{phoneName}} has some drawbacks to consider.",
+    local_review_very_short_generic: "Customers seem generally satisfied with the {{phoneName}}.",
     // My Phones Page
     myPhonesPageTitle: "My Phone Inventory & Sales",
     myPhonesPageDesc: "Manage your produced phone models, view stock, set prices, and list them for sale.",
@@ -451,8 +455,8 @@ const translations: Translations = {
     estimatingCosts: "Estimating Costs...",
     estimatedMfgCost: "Est. Mfg. Cost: ${{cost}}",
     estimatedResearchCost: "Est. Research Cost: ${{cost}}",
-    costsEstimatedSuccess: "Processor costs estimated successfully.", // AI or Algo
-    costsEstimatedSuccessDisp: "Display costs estimated successfully.", // AI or Algo
+    costsEstimatedSuccess: "Processor costs estimated successfully.",
+    costsEstimatedSuccessDisp: "Display costs estimated successfully.",
     errorEstimatingCosts: "Error estimating costs. Please try again.",
     errorEstimatingCostsProc: "Processor costs not yet estimated or error occurred.",
     errorEstimatingCostsDisp: "Error estimating display costs. Please try again.",
@@ -505,7 +509,7 @@ const translations: Translations = {
     difficulty_easy: "Easy",
     difficulty_normal: "Normal",
     difficulty_hard: "Hard",
-    // Reviews Page (New)
+    // Reviews Page
     reviewsPageTitle: "Customer Reviews",
     reviewsPageDesc: "See what customers are saying about your phones.",
     noReviewsYet: "No customer reviews available yet. Sell some phones to get feedback!",
@@ -555,7 +559,7 @@ const translations: Translations = {
     rd: "НИОКР",
     settings: "Настройки",
     viewOnGithub: "Посмотреть на GitHub",
-    customerReviews: "Отзывы покупателей", // New
+    customerReviews: "Отзывы покупателей",
     // Page Titles
     pageTitleDashboard: "Панель управления",
     pageTitleDesign: "Создание и производство нового телефона",
@@ -567,7 +571,7 @@ const translations: Translations = {
     pageTitleProcurement: "Контракты клиентов",
     pageTitleRD: "Исследования и Разработка",
     pageTitleSettings: "Настройки Игры",
-    pageTitleReviews: "Отзывы покупателей", // New
+    pageTitleReviews: "Отзывы покупателей",
     // Dashboard Page
     welcomeTitle: "Добро пожаловать в Gadget Tycoon!",
     welcomeDescription: "Управляйте своей технологической империей, создавайте передовые телефоны и покоряйте рынок.",
@@ -719,6 +723,10 @@ const translations: Translations = {
     local_review_template1: "{{phoneName}} предлагает достойный набор. {{pro_feature}} является ярким моментом, хотя {{con_feature}} могли бы быть лучше. В целом, хороший выбор для своей целевой аудитории.",
     local_review_template2: "За свою цену (около ${{cost}}) {{phoneName}} ощущается {{overall_feel}}. Он хорошо сбалансирован по стоимости и функциям, что делает его конкурентоспособным.",
     local_review_template3: "Этот {{phoneName}} впечатляет {{highlight}}. Однако потенциальным покупателям стоит учесть его ограничения. Это неоднозначное, но интересное устройство.",
+    local_review_short_positive: "{{phoneName}} - хороший телефон за свою цену.",
+    local_review_short_neutral: "{{phoneName}} - неплохой вариант в своем сегменте.",
+    local_review_short_negative: "У {{phoneName}} есть некоторые недостатки, которые стоит учесть.",
+    local_review_very_short_generic: "Покупатели, похоже, в целом довольны {{phoneName}}.",
     // My Phones Page
     myPhonesPageTitle: "Мои телефоны: Инвентарь и Продажи",
     myPhonesPageDesc: "Управляйте произведенными моделями телефонов, просматривайте остатки, устанавливайте цены и выставляйте их на продажу.",
@@ -989,8 +997,8 @@ const translations: Translations = {
     estimatingCosts: "Оценка стоимости...",
     estimatedMfgCost: "Прибл. себест. произв.: ${{cost}}",
     estimatedResearchCost: "Прибл. стоим. исслед.: ${{cost}}",
-    costsEstimatedSuccess: "Стоимость процессора успешно оценена.", // ИИ или Алгоритм
-    costsEstimatedSuccessDisp: "Стоимость дисплея успешно оценена.", // ИИ или Алгоритм
+    costsEstimatedSuccess: "Стоимость процессора успешно оценена.",
+    costsEstimatedSuccessDisp: "Стоимость дисплея успешно оценена.",
     errorEstimatingCosts: "Ошибка оценки стоимости. Пожалуйста, попробуйте еще раз.",
     errorEstimatingCostsProc: "Стоимость процессора еще не оценена или произошла ошибка.",
     errorEstimatingCostsDisp: "Ошибка оценки стоимости дисплея. Пожалуйста, попробуйте еще раз.",
@@ -1043,7 +1051,7 @@ const translations: Translations = {
     difficulty_easy: "Легко",
     difficulty_normal: "Нормально",
     difficulty_hard: "Сложно",
-    // Reviews Page (New)
+    // Reviews Page
     reviewsPageTitle: "Отзывы покупателей",
     reviewsPageDesc: "Посмотрите, что покупатели говорят о ваших телефонах.",
     noReviewsYet: "Отзывов пока нет. Продайте несколько телефонов, чтобы получить обратную связь!",
