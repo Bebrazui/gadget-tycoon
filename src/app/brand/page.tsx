@@ -20,10 +20,31 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { getBrandSlogansAction, type GenerateSlogansFormState } from './actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { List, ListItem } from '@/components/ui/list';
+import { useSettings } from '@/context/SettingsContext'; // For offline mode
+
+const localSloganTemplates = (brandName: string, marketingStrategy: string, t: Function) => {
+  const baseSlogans = [
+    t('local_slogan_template1', { brandName }),
+    t('local_slogan_template2', { brandName }),
+    t('local_slogan_template3'),
+    t('local_slogan_template4', { brandName }),
+  ];
+  if (marketingStrategy === 'innovation_leader') {
+    baseSlogans.push(t('local_slogan_innovation', { brandName }));
+  } else if (marketingStrategy === 'budget_friendly') {
+    baseSlogans.push(t('local_slogan_budget', { brandName }));
+  } else if (marketingStrategy === 'premium_quality') {
+    baseSlogans.push(t('local_slogan_premium', { brandName }));
+  }
+  // Shuffle and pick 3-4
+  return baseSlogans.sort(() => 0.5 - Math.random()).slice(0, Math.floor(Math.random() * 2) + 3);
+};
+
 
 export default function BrandManagementPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { settings } = useSettings();
   const [currentBrand, setCurrentBrand] = useState<Brand | null>(null);
   const [isSavingBrand, setIsSavingBrand] = useState(false);
   const [isGeneratingSlogans, setIsGeneratingSlogans] = useState(false);
@@ -62,17 +83,22 @@ export default function BrandManagementPage() {
   useEffect(() => {
     const storedBrandString = localStorage.getItem(LOCAL_STORAGE_BRAND_KEY);
     if (storedBrandString) {
-      const storedBrand = JSON.parse(storedBrandString);
-      setCurrentBrand(storedBrand);
-      reset(storedBrand); 
+      try {
+        const storedBrand = JSON.parse(storedBrandString);
+        setCurrentBrand(storedBrand);
+        reset(storedBrand); 
+      } catch (e) {
+        console.error("Error parsing brand from localStorage", e);
+        localStorage.removeItem(LOCAL_STORAGE_BRAND_KEY);
+      }
     }
   }, [reset]);
 
 
   const onBrandSubmit = async (data: BrandFormData) => {
     setIsSavingBrand(true);
-    setSloganState(null); // Clear previous slogans if brand details change
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
+    setSloganState(null); 
+    await new Promise(resolve => setTimeout(resolve, 500)); 
     
     setCurrentBrand(data);
     localStorage.setItem(LOCAL_STORAGE_BRAND_KEY, JSON.stringify(data));
@@ -85,26 +111,41 @@ export default function BrandManagementPage() {
   };
 
   const handleGenerateSlogans = async () => {
-    if (!currentBrand || !currentBrand.name) {
+    if (!currentBrand || !currentBrand.name || !currentBrand.logoDescription || !currentBrand.marketingStrategy) {
       toast({
         variant: "destructive",
         title: t('genericErrorTitle'),
-        description: "Please save your brand name and details first.",
+        description: t('brandDetailsIncompleteError'),
       });
       return;
     }
     setIsGeneratingSlogans(true);
     setSloganState(null);
-    const result = await getBrandSlogansAction(currentBrand);
-    setSloganState(result);
-    setIsGeneratingSlogans(false);
-    if (result.error) {
-      toast({
-        variant: "destructive",
-        title: t('sloganGenerationErrorTitle'),
-        description: result.message || t('sloganGenerationErrorDesc'),
-      });
+
+    if (settings.useOnlineFeatures) {
+        const result = await getBrandSlogansAction(currentBrand);
+        setSloganState(result);
+        if (result.error) {
+        toast({
+            variant: "destructive",
+            title: t('sloganGenerationErrorTitle'),
+            description: result.message || t('sloganGenerationErrorDesc'),
+        });
+        }
+    } else {
+        // Generate local slogans
+        const localSlogans = localSloganTemplates(currentBrand.name, currentBrand.marketingStrategy, t);
+        setSloganState({
+            message: t("localSlogansGeneratedTitle"),
+            slogans: localSlogans,
+            error: false
+        });
+        toast({
+            title: t("localSlogansGeneratedTitle"),
+            description: `${localSlogans.length} ${t('slogansGeneratedLocallyDescSuffix') || 'slogans generated locally.'}`
+        });
     }
+    setIsGeneratingSlogans(false);
   };
 
   return (
@@ -167,11 +208,11 @@ export default function BrandManagementPage() {
               type="button" 
               variant="outline" 
               onClick={handleGenerateSlogans} 
-              disabled={isGeneratingSlogans || !currentBrand?.name}
+              disabled={isGeneratingSlogans || !currentBrand?.name || !currentBrand?.logoDescription || !currentBrand?.marketingStrategy}
               className="w-full sm:w-auto"
             >
               {isGeneratingSlogans ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              {t('generateSlogansButton')}
+              {settings.useOnlineFeatures ? t('generateSlogansButton') : t('generateSlogansLocalButton')}
             </Button>
             <Button type="submit" disabled={isSavingBrand} className="w-full sm:w-auto">
               {isSavingBrand && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -223,7 +264,7 @@ export default function BrandManagementPage() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Sparkles className="w-5 h-5 mr-2 text-primary" />
-                {t('suggestedSlogansTitle')}
+                {settings.useOnlineFeatures ? t('suggestedSlogansTitle') : t('localSlogansGeneratedTitle')}
               </CardTitle>
             </CardHeader>
             <CardContent>

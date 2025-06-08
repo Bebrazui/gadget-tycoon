@@ -35,7 +35,7 @@ import {
   LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY,
   INITIAL_FUNDS, BASE_DESIGN_ASSEMBLY_COST, SALE_MARKUP_FACTOR,
   XP_FOR_DESIGNING_PHONE, calculateXpToNextLevel, LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY, LOCAL_STORAGE_CUSTOM_DISPLAYS_KEY,
-  MONEY_BONUS_PER_LEVEL_BASE, MONEY_BONUS_FIXED_AMOUNT
+  MONEY_BONUS_PER_LEVEL_BASE, MONEY_BONUS_FIXED_AMOUNT, GeneratePhoneReviewOutputSchema
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/hooks/useTranslation';
@@ -72,6 +72,117 @@ const phoneDesignSchema = z.object({
 });
 
 type PhoneDesignFormData = z.infer<typeof phoneDesignSchema>;
+
+function generateLocalPhoneReview(
+  phoneDetails: Omit<PhoneDesign, 'id' | 'productionQuantity' | 'currentStock' | 'imageUrl' | 'salePrice' | 'quantityListedForSale'> & {unitManufacturingCost: number},
+  t: (key: string, replacements?: Record<string, string | number>) => string
+): z.infer<typeof GeneratePhoneReviewOutputSchema> {
+  const pros: string[] = [];
+  const cons: string[] = [];
+  let sentimentScore = 0;
+
+  // Processor - Assuming a basic heuristic.
+  // This would ideally map processor string to a score or tier.
+  // For now, let's say high-end processors mentioned in PROCESSOR_OPTIONS are good.
+  const highEndProcessors = ['snapdragon_8_gen_3', 'bionic_a17_pro', 'snapdragon_8_gen_2', 'dimensity_9000_plus'];
+  if (highEndProcessors.some(p => phoneDetails.processor.includes(p))) {
+    pros.push(t('local_review_pro_powerful_processor', { processor: phoneDetails.processor }));
+    sentimentScore += 2;
+  } else if (phoneDetails.processor.includes('budget')) {
+    cons.push(t('local_review_con_basic_processor', { processor: phoneDetails.processor }));
+    sentimentScore -=1;
+  } else {
+     pros.push(t('local_review_pro_decent_processor', { processor: phoneDetails.processor }));
+     sentimentScore +=1;
+  }
+
+
+  if (phoneDetails.ram >= 12) {
+    pros.push(t('local_review_pro_ample_ram', { ram: phoneDetails.ram }));
+    sentimentScore += 2;
+  } else if (phoneDetails.ram >= 8) {
+    pros.push(t('local_review_pro_good_ram', { ram: phoneDetails.ram }));
+    sentimentScore += 1;
+  } else if (phoneDetails.ram < 6) {
+    cons.push(t('local_review_con_low_ram', { ram: phoneDetails.ram }));
+    sentimentScore -= 1;
+  }
+
+  if (phoneDetails.storage >= 512) {
+    pros.push(t('local_review_pro_large_storage', { storage: phoneDetails.storage }));
+    sentimentScore += 1;
+  } else if (phoneDetails.storage < 128) {
+    cons.push(t('local_review_con_small_storage', { storage: phoneDetails.storage }));
+    sentimentScore -=1;
+  }
+
+  if (phoneDetails.cameraResolution >= 64) {
+    pros.push(t('local_review_pro_high_res_camera', { mp: phoneDetails.cameraResolution }));
+    sentimentScore += 1;
+  } else if (phoneDetails.cameraResolution < 20) {
+     cons.push(t('local_review_con_modest_camera', { mp: phoneDetails.cameraResolution }));
+     sentimentScore -=0.5;
+  }
+
+  if (phoneDetails.batteryCapacity >= 5000) {
+    pros.push(t('local_review_pro_large_battery', { capacity: phoneDetails.batteryCapacity }));
+    sentimentScore += 2;
+  } else if (phoneDetails.batteryCapacity < 3500) {
+    cons.push(t('local_review_con_small_battery', { capacity: phoneDetails.batteryCapacity }));
+    sentimentScore -= 1;
+  }
+
+  if (phoneDetails.refreshRate.includes('120') || phoneDetails.refreshRate.includes('144')) {
+    pros.push(t('local_review_pro_high_refresh_rate', { rate: phoneDetails.refreshRate }));
+    sentimentScore += 1;
+  }
+
+  if (phoneDetails.material.includes('titanium') || phoneDetails.material.includes('glass_premium')) {
+    pros.push(t('local_review_pro_premium_material', { material: phoneDetails.material }));
+    sentimentScore += 1;
+  }
+
+  if (phoneDetails.nfcSupport) pros.push(t('local_review_pro_nfc'));
+  if (phoneDetails.hasOIS) pros.push(t('local_review_pro_ois'));
+  if (phoneDetails.ultrawideCameraMP > 0) pros.push(t('local_review_pro_ultrawide'));
+  if (phoneDetails.telephotoCameraMP > 0) pros.push(t('local_review_pro_telephoto'));
+
+
+  // Cost consideration
+  if (phoneDetails.unitManufacturingCost > 0) { // Avoid division by zero
+      const valueScore = (sentimentScore * 100) / phoneDetails.unitManufacturingCost; // Arbitrary value metric
+      if (valueScore > 1.5 && phoneDetails.unitManufacturingCost < 300) { // Good value for budget/mid
+          pros.push(t('local_review_pro_good_value'));
+          sentimentScore += 1;
+      } else if (valueScore < 0.5 && phoneDetails.unitManufacturingCost > 500) { // Poor value for premium
+          cons.push(t('local_review_con_expensive'));
+          sentimentScore -= 1;
+      } else if (phoneDetails.unitManufacturingCost < 150 && sentimentScore > 0) {
+          pros.push(t('local_review_pro_affordable'));
+          sentimentScore += 0.5;
+      }
+  }
+
+
+  let overallSentiment: "Positive" | "Neutral" | "Negative" = "Neutral";
+  if (sentimentScore > 2) overallSentiment = "Positive";
+  else if (sentimentScore < -1) overallSentiment = "Negative";
+
+  const reviewTemplates = [
+    t('local_review_template1', { phoneName: phoneDetails.name, pro_feature: pros[0] || t('local_review_its_features'), con_feature: cons[0] || t('local_review_some_aspects') }),
+    t('local_review_template2', { phoneName: phoneDetails.name, overall_feel: overallSentiment.toLowerCase(), cost: phoneDetails.unitManufacturingCost.toFixed(0) }),
+    t('local_review_template3', { phoneName: phoneDetails.name, highlight: pros[1] || t('local_review_its_performance') }),
+  ];
+
+  const reviewText = reviewTemplates[Math.floor(Math.random() * reviewTemplates.length)];
+
+  return {
+    reviewText: reviewText.slice(0, 250) + (reviewText.length > 250 ? "..." : ""), // Ensure reasonable length
+    pros: pros.slice(0, 3), // Max 3 pros
+    cons: cons.slice(0, 3), // Max 3 cons
+    overallSentiment,
+  };
+}
 
 export default function DesignPhonePage() {
   const { t, language } = useTranslation();
@@ -157,8 +268,8 @@ export default function DesignPhonePage() {
   const allProcessorOptions = useMemo(() => {
     const predefined = PROCESSOR_OPTIONS.options?.map(opt => ({ ...opt, label: t(opt.label) || opt.label })) || [];
     const custom = customProcessors.map(cp => ({
-        value: cp.id, // Use cp.id which starts with custom_proc_
-        label: `${cp.name} (Custom)`,
+        value: cp.id, 
+        label: `${cp.name} (${t('customLabelSuffix')})`,
         cost: cp.manufacturingCost,
         antutuScore: cp.antutuScore,
         coreCount: cp.coreCount,
@@ -170,7 +281,7 @@ export default function DesignPhonePage() {
   const allDisplayOptions = useMemo(() => {
     const predefined = DISPLAY_OPTIONS.options?.map(opt => ({...opt, label: t(opt.label) || opt.label})) || [];
     const custom = customDisplays.map(cd => ({
-      value: cd.id, // Use cd.id which starts with custom_display_
+      value: cd.id, 
       label: t('customDisplayLabel', {name: cd.name}),
       cost: cd.manufacturingCost,
       resolutionCategory: cd.resolutionCategory,
@@ -190,11 +301,11 @@ export default function DesignPhonePage() {
         const selectedDisplay = allDisplayOptions.find(opt => opt.value === value);
         return selectedDisplay?.cost || 0;
     }
-    // Fallback for other types if ever needed, or for predefined options
+    
     const optionsArray = 
         componentType === 'processor' ? PROCESSOR_OPTIONS.options : 
         componentType === 'display' ? DISPLAY_OPTIONS.options : 
-        []; // Add other component types here if necessary
+        []; 
     return optionsArray?.find(opt => opt.value === value)?.cost || 0;
   }, [allProcessorOptions, allDisplayOptions]);
 
@@ -334,22 +445,24 @@ export default function DesignPhonePage() {
       });
 
       // AI Review or Local Review based on settings
+      let processorNameForReview = data.processor;
+      const selectedProcOption = allProcessorOptions.find(opt => opt.value === data.processor);
+      processorNameForReview = selectedProcOption ? selectedProcOption.label : data.processor;
+
+      let displayTypeForReview = data.displayType;
+      const selectedDisplayOption = allDisplayOptions.find(opt => opt.value === data.displayType);
+      displayTypeForReview = selectedDisplayOption ? selectedDisplayOption.label : data.displayType;
+      
+      const reviewInputData = { 
+        ...data, 
+        unitManufacturingCost: currentUnitCost,
+        processor: processorNameForReview,
+        displayType: displayTypeForReview,
+      };
+
+
       if (settings.useOnlineFeatures) {
           setIsGeneratingReview(true);
-          let processorNameForReview = data.processor;
-          const selectedProcOption = allProcessorOptions.find(opt => opt.value === data.processor);
-          processorNameForReview = selectedProcOption ? selectedProcOption.label : data.processor;
-
-          let displayTypeForReview = data.displayType;
-          const selectedDisplayOption = allDisplayOptions.find(opt => opt.value === data.displayType);
-          displayTypeForReview = selectedDisplayOption ? selectedDisplayOption.label : data.displayType;
-          
-          const reviewInputData = { 
-            ...data, 
-            unitManufacturingCost: currentUnitCost,
-            processor: processorNameForReview,
-            displayType: displayTypeForReview,
-          };
           const reviewResult = await getPhoneDesignReview(reviewInputData);
           setReviewState(reviewResult);
           setIsGeneratingReview(false);
@@ -358,7 +471,7 @@ export default function DesignPhonePage() {
             const phonesAfterReviewString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
             let phonesAfterReview: PhoneDesign[] = phonesAfterReviewString ? JSON.parse(phonesAfterReviewString) : [];
             phonesAfterReview = phonesAfterReview.map(p =>
-              p.id === phoneToSave.id ? { ...p, review: reviewResult.review?.reviewText } : p
+              p.id === phoneToSave.id ? { ...p, review: reviewResult.review?.reviewText, reviewType: 'ai' } : p
             );
             localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(phonesAfterReview));
             toast({
@@ -374,22 +487,16 @@ export default function DesignPhonePage() {
           }
       } else {
           // Generate Local Review
-          // This is a placeholder for actual local review generation logic
-          const localReviewText = `This ${data.name} phone offers a good balance for its cost of $${currentUnitCost.toFixed(2)}.`;
+          const localReview = generateLocalPhoneReview(reviewInputData, t);
           setReviewState({
-            message: "Local review generated.",
-            review: {
-                reviewText: localReviewText,
-                pros: ["Locally generated pro 1", "Locally generated pro 2"],
-                cons: ["Locally generated con 1"],
-                overallSentiment: "Neutral"
-            },
+            message: t("localReviewGeneratedTitle"),
+            review: localReview,
             error: false,
           });
            const phonesAfterReviewString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
            let phonesAfterReview: PhoneDesign[] = phonesAfterReviewString ? JSON.parse(phonesAfterReviewString) : [];
            phonesAfterReview = phonesAfterReview.map(p =>
-             p.id === phoneToSave.id ? { ...p, review: localReviewText } : p
+             p.id === phoneToSave.id ? { ...p, review: localReview.reviewText, reviewType: 'local' } : p
            );
            localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(phonesAfterReview));
            toast({
@@ -526,7 +633,7 @@ export default function DesignPhonePage() {
                                     let val: string | number = e.target.value;
                                     if (field.inputType === 'number') {
                                         val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                                        if (isNaN(val as number) && e.target.value !== '') val = 0; // Handle non-numeric input for numbers
+                                        if (isNaN(val as number) && e.target.value !== '') val = 0; 
                                     }
                                     commonProps.onChange(val);
                                   }}
@@ -604,9 +711,9 @@ export default function DesignPhonePage() {
             >
               <div className="w-full h-full bg-background rounded-sm flex flex-col items-center justify-center text-center p-1">
                  <Smartphone className="w-10 h-10 text-muted-foreground mb-1" />
-                 <p className="text-[0.6rem] leading-tight text-muted-foreground">{(allProcessorOptions.find(o=>o.value === watchedValues.processor)?.label || '').split(' (')[0]}</p>
+                 <p className="text-[0.6rem] leading-tight text-muted-foreground">{(allProcessorOptions.find(o=>o.value === watchedValues.processor)?.label || '').split(` (${t('customLabelSuffix')})`)[0]}</p>
                  <p className="text-[0.6rem] leading-tight text-muted-foreground">{watchedValues.ram}GB RAM, {watchedValues.storage}GB</p>
-                 <p className="text-[0.6rem] leading-tight text-muted-foreground">{watchedValues.screenSize}" {(allDisplayOptions.find(o=>o.value === watchedValues.displayType)?.label || '').split(' (')[0]}</p>
+                 <p className="text-[0.6rem] leading-tight text-muted-foreground">{watchedValues.screenSize}" {(allDisplayOptions.find(o=>o.value === watchedValues.displayType)?.label || '').split(` (${t('customLabelSuffix')})`)[0]}</p>
                  <p className="text-[0.5rem] leading-tight text-muted-foreground">
                     Main: {watchedValues.cameraResolution}MP {watchedValues.hasOIS ? '(OIS)' : ''}
                     {watchedValues.ultrawideCameraMP > 0 ? `, UW: ${watchedValues.ultrawideCameraMP}MP` : ''}
@@ -630,7 +737,7 @@ export default function DesignPhonePage() {
         {reviewState && (
           <Card>
             <CardHeader>
-              <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('aiReviewCardTitle')}</h3>
+              <h3 className="text-2xl font-semibold leading-none tracking-tight">{settings.useOnlineFeatures ? t('aiReviewCardTitle') : t('localReviewCardTitle')}</h3>
             </CardHeader>
             <CardContent>
               {reviewState.error && (
@@ -660,7 +767,7 @@ export default function DesignPhonePage() {
                   </div>
                 </div>
               )}
-               {isGeneratingReview && !reviewState && <p className="text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('generatingReviewMessage')}</p>}
+               {isGeneratingReview && !reviewState && settings.useOnlineFeatures && <p className="text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('generatingReviewMessage')}</p>}
             </CardContent>
           </Card>
         )}

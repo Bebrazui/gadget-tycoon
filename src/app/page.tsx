@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StatCard } from "@/components/shared/StatCard";
 import { SectionTitle } from "@/components/shared/SectionTitle";
-import { DollarSign, Smartphone, Users, TrendingUp, HandCoins, Zap, Info } from "lucide-react";
+import { DollarSign, Smartphone, Users, TrendingUp, HandCoins, Zap, Info, Bell } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ export default function DashboardPage() {
   const performMarketSimulation = useCallback((isCatchUp = false, catchUpIntervals = 1) => {
     let totalPhonesSoldThisCycle = 0;
     let totalRevenueThisCycle = 0;
-    let salesNotificationsForCycle: string[] = [];
+    let salesNotificationsForCycle: { title: string, description: string, icon?: React.ReactNode }[] = [];
     let xpGainedThisCycle = 0;
 
     let currentPhonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
@@ -100,12 +100,16 @@ export default function DashboardPage() {
             xpGainedThisCycle += XP_PER_PHONE_SOLD * salesForThisPhoneInInterval;
             phonesModifiedInLoop = true;
 
-            salesNotificationsForCycle.push(t('marketDaySaleNotification', {
-              quantity: salesForThisPhoneInInterval,
-              phoneName: phone.name,
-              price: (phone.salePrice || 0).toFixed(2),
-              totalRevenue: revenueFromThisPhone.toFixed(2)
-            }));
+            salesNotificationsForCycle.push({
+                title: t('marketSaleNotificationTitle'),
+                description: t('marketDaySaleNotification', {
+                    quantity: salesForThisPhoneInInterval,
+                    phoneName: phone.name,
+                    price: (phone.salePrice || 0).toFixed(2),
+                    totalRevenue: revenueFromThisPhone.toFixed(2)
+                }),
+                icon: <HandCoins className="w-5 h-5 text-green-500" />
+            });
             
             const saleTransaction: Transaction = {
               id: `txn_market_sale_${Date.now()}_${phone.id}_${salesForThisPhoneInInterval}_${i}`,
@@ -164,12 +168,13 @@ export default function DashboardPage() {
     
     salesNotificationsForCycle.forEach(notification => {
       toast({
-        title: t('marketDaySummaryTitle'),
-        description: notification,
+        title: notification.title,
+        description: notification.description,
+        // icon: notification.icon, // Toast component doesn't directly support an icon prop this way. It's usually done via custom JSX in description or title.
       });
     });
 
-    if (!isCatchUp && totalPhonesSoldThisCycle === 0 && currentPhones.every(p => p.quantityListedForSale === 0) && currentPhones.length > 0) {
+    if (!isCatchUp && totalPhonesSoldThisCycle === 0 ) {
        if (currentPhones.length > 0 && currentPhones.every(p => p.quantityListedForSale === 0)) {
         toast({
             title: t('marketDaySummaryTitle'),
@@ -222,7 +227,7 @@ export default function DashboardPage() {
         try {
             currentSettings = JSON.parse(storedSettingsString);
             if (typeof currentSettings.useOnlineFeatures !== 'boolean' || !['easy', 'normal', 'hard'].includes(currentSettings.difficulty)) {
-                currentSettings = { ...defaultGameSettings, ...currentSettings }; // Merge to ensure all fields are present
+                currentSettings = { ...defaultGameSettings, ...currentSettings }; 
                 localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(currentSettings));
             }
         } catch (error) {
@@ -241,7 +246,7 @@ export default function DashboardPage() {
     const handleSettingsUpdate = () => { loadGameData(); };
 
     window.addEventListener('gameStatsChanged', handleStatsUpdate);
-    window.addEventListener('gameSettingsChanged', handleSettingsUpdate); // Listen for settings changes
+    window.addEventListener('gameSettingsChanged', handleSettingsUpdate); 
 
     
     const lastSimTime = localStorage.getItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY);

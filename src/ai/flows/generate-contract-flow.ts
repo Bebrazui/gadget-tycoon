@@ -15,13 +15,11 @@ import {
     type GenerateClientContractInput,
     ClientContractSchema,
     type ClientContract
-} from '@/lib/types'; // ClientContract type is also defined in lib/types
+} from '@/lib/types'; 
 
 
 // Wrapper function to be called from server actions
 export async function generateClientContract(input?: GenerateClientContractInput): Promise<ClientContract> {
-  // The 'input' parameter is passed to the flow, but currently the prompt doesn't use it.
-  // It's included for future expansion.
   return generateClientContractFlow(input || {});
 }
 
@@ -35,10 +33,10 @@ Generate a realistic and interesting contract proposal for a new batch of custom
 Follow these guidelines:
 - Create a plausible but fictional client company name.
 - Write a concise contract title and a 2-3 sentence brief explaining their needs.
-- Specify **only 3 to 5 key requirements** in the 'requiredSpecs' object. Leave other spec fields undefined.
+- Specify **between 3 and 5 key requirements** in the 'requiredSpecs' object. Leave other spec fields undefined.
   - For 'specificMaterial', 'specificProcessor', 'specificDisplayType', and 'targetOs', if you include them, choose reasonable values that exist in typical phone manufacturing (e.g., material: 'aluminum', processor: 'snapdragon_7_gen_1', display: 'oled_fhd', os: 'stock_android').
   - For numeric specs (RAM, storage, camera, battery, screen size, maxUnitCost), provide realistic values.
-  - For boolean specs (NFC, OIS), set them if they are part of the 3-5 key requirements.
+  - For boolean specs (NFC, OIS), set them if they are part of the key requirements.
 - Set a reasonable quantity (50-500 units).
 - Set a reward (1000-10000 USD bonus) and a penalty (500-5000 USD).
 - Set a deadline (5-20 market days).
@@ -66,30 +64,43 @@ const generateClientContractFlow = ai.defineFlow(
     outputSchema: ClientContractSchema,
   },
   async (input) => {
-    const { output } = await contractPrompt(input); // Pass the input to the prompt
-    if (!output) {
-      // Fallback if AI fails (should be rare with good prompting and schema)
-      // This fallback should also conform to ClientContractSchema
+    const { output } = await contractPrompt(input); 
+    if (!output || Object.keys(output.requiredSpecs || {}).length === 0) {
+      // Fallback if AI fails or returns empty specs
+      const fallbackClientNames = ["Tech Solutions Inc.", "Global Innovations Co.", "Future Gadgets Ltd.", "Pioneer Devices Corp."];
+      const fallbackTitles = ["Standard Device Order", "Bulk Smartphone Request", "Urgent Tech Procurement", "Employee Handset Upgrade"];
+      const fallbackBriefs = [
+        "We require a batch of reliable smartphones for our expanding field team.",
+        "Looking for a cost-effective yet capable device for a new product line.",
+        "Need modern handsets for our enterprise clients with specific security features.",
+        "A custom phone order to equip our new hires with essential communication tools."
+      ];
+      const fallbackSpecs: ClientContract['requiredSpecs'][] = [
+        { minRam: 6, maxUnitCost: 200, mustHaveNFC: true },
+        { specificMaterial: 'aluminum', minBattery: 4000, minStorage: 128 },
+        { targetOs: 'stock_android', minCameraMP: 48, maxUnitCost: 300 },
+        { specificProcessor: 'snapdragon_7_gen_1', minScreenSize: 6.0 },
+      ];
+      const randomSpec = fallbackSpecs[Math.floor(Math.random() * fallbackSpecs.length)];
+
       return {
         id: crypto.randomUUID(),
-        clientName: "Fallback Client Inc.",
-        contractTitle: "Standard Device Order",
-        brief: "A standard order due to an AI generation issue.",
-        requiredSpecs: { minRam: 4, maxUnitCost: 150 },
-        quantity: 100,
-        rewardFlatBonus: 1000,
-        penaltyFlat: 500,
-        deadlineDays: 10,
+        clientName: fallbackClientNames[Math.floor(Math.random() * fallbackClientNames.length)],
+        contractTitle: fallbackTitles[Math.floor(Math.random() * fallbackTitles.length)],
+        brief: fallbackBriefs[Math.floor(Math.random() * fallbackBriefs.length)],
+        requiredSpecs: randomSpec,
+        quantity: Math.floor(Math.random() * (450 - 50 + 1)) + 50, // 50-500
+        rewardFlatBonus: Math.floor(Math.random() * (9000 - 1000 + 1)) + 1000, // 1000-10000
+        penaltyFlat: Math.floor(Math.random() * (4500 - 500 + 1)) + 500, // 500-5000
+        deadlineDays: Math.floor(Math.random() * (15 - 5 + 1)) + 5, // 5-20
         status: 'available',
       };
     }
-    // Ensure the ID is a UUID if not already provided by the LLM, or if the LLM struggles with it
+    
     if (!output.id || !z.string().uuid().safeParse(output.id).success) {
         output.id = crypto.randomUUID();
     }
-    output.status = 'available'; // Ensure status is always 'available'
+    output.status = 'available'; 
     return output;
   }
 );
-
-    

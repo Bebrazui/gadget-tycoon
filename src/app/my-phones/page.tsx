@@ -78,7 +78,7 @@ export default function MyPhonesPage() {
             price: salePrice.toFixed(2),
             quantityToList: (phone.quantityListedForSale || 0).toString(), 
           };
-          initialProduceMoreQtys[phone.id] = '0'; // Default to 0 for "produce more"
+          initialProduceMoreQtys[phone.id] = '0'; 
         });
         setSalesFormData(initialSalesData);
         setProduceMoreQuantities(initialProduceMoreQtys);
@@ -111,7 +111,7 @@ export default function MyPhonesPage() {
         }
     };
     window.addEventListener('storage', handleStorageChange);
-    // Custom event listener
+    
     const handleMyPhonesUpdate = () => {
       loadPhones();
     };
@@ -126,6 +126,10 @@ export default function MyPhonesPage() {
   const getLabel = (optionsArray: any[] | undefined, value: string): string => {
     if (!optionsArray || !value) return value || t('notSet');
     const option = optionsArray.find(opt => opt.value === value);
+    // Handle custom components that might have labels already translated or are direct names
+    if (value.startsWith('custom_proc_') || value.startsWith('custom_disp_')) {
+        return option ? option.label : (value || t('notSet')); // Already includes (Custom) or similar
+    }
     return option ? t(option.label) : (value || t('notSet'));
   };
 
@@ -258,7 +262,7 @@ export default function MyPhonesPage() {
     const targetPhone = currentPhones[targetPhoneIndex];
 
     const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
-    let currentStats: GameStats = statsString ? JSON.parse(statsString) : { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0 };
+    let currentStats: GameStats = statsString ? JSON.parse(statsString) : { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0, level: 1, xp: 0 };
     
     const costToProduce = quantity * (targetPhone.unitManufacturingCost || 0);
 
@@ -294,9 +298,9 @@ export default function MyPhonesPage() {
     localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
     localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
 
-    // Update local state to reflect changes
+    
     setSavedPhones(currentPhones); 
-    setProduceMoreQuantities(prev => ({ ...prev, [phoneId]: '0' })); // Reset input
+    setProduceMoreQuantities(prev => ({ ...prev, [phoneId]: '0' })); 
 
     window.dispatchEvent(new CustomEvent('myPhonesChanged'));
     window.dispatchEvent(new CustomEvent('gameStatsChanged'));
@@ -399,7 +403,10 @@ export default function MyPhonesPage() {
                 </div>
                 {phone.review && (
                   <div>
-                    <h4 className="font-semibold flex items-center mb-1"><Bot className="inline h-4 w-4 mr-1 text-primary" /> {t('aiGeneratedReview')}</h4>
+                    <h4 className="font-semibold flex items-center mb-1">
+                      <Bot className="inline h-4 w-4 mr-1 text-primary" /> 
+                      {phone.reviewType === 'ai' ? t('aiGeneratedReview') : t('localGeneratedReview')}
+                    </h4>
                     <p className="text-sm text-muted-foreground italic line-clamp-3">"{phone.review}"</p>
                   </div>
                 )}
@@ -474,7 +481,7 @@ export default function MyPhonesPage() {
                   </Button>
                 </div>
               </CardContent>
-               <CardFooter className="pt-4 mt-auto"> {/* Added mt-auto here */}
+               <CardFooter className="pt-4 mt-auto"> 
                  <Button variant="outline" className="w-full" asChild>
                     <Link href={`/design?edit=${phone.id}`}>{t('editDesignButton')}</Link> 
                  </Button>
