@@ -24,6 +24,7 @@ const navItemTitleKeys: Record<string, string> = {
   '/procurement': 'pageTitleProcurement',
   '/rd': 'pageTitleRD',
   '/settings': 'pageTitleSettings',
+  '/reviews': 'pageTitleReviews',
 };
 
 const defaultInitialHeaderStats: Pick<GameStats, 'level' | 'xp'> = {

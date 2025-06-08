@@ -22,6 +22,7 @@ import {
   Briefcase,
   FlaskConical, 
   Settings,
+  MessageSquareText, // Added for Reviews
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -42,6 +43,7 @@ export function SidebarItems() {
       { href: '/brand', labelKey: 'brand', icon: Award },
       { href: '/market', labelKey: 'marketAnalysis', icon: LineChart },
       { href: '/financials', labelKey: 'financials', icon: Banknote },
+      { href: '/reviews', labelKey: 'customerReviews', icon: MessageSquareText }, // Added Reviews
       { href: '/trends', labelKey: 'trendForecasting', icon: Brain },
       { href: '/settings', labelKey: 'settings', icon: Settings },
     ];
