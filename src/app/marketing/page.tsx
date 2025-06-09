@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, AlertCircle, Volume2, TrendingUp, DollarSign, Clock, Target, PlayCircle, Info } from 'lucide-react';
+import { Loader2, AlertCircle, Volume2, TrendingUp, DollarSign, Clock, Target, PlayCircle, Info, Users } from 'lucide-react'; // Added Users
 import type { MarketingCampaignType, ActiveMarketingCampaign, PhoneDesign, GameStats, Transaction } from '@/lib/types';
 import {
     AVAILABLE_MARKETING_CAMPAIGNS,
@@ -22,6 +22,7 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { useToast } from '@/hooks/use-toast';
 import { SectionTitle } from '@/components/shared/SectionTitle';
+import { Label } from '@/components/ui/label';
 
 export default function MarketingPage() {
   const { t, language } = useTranslation();
@@ -75,6 +76,9 @@ export default function MarketingPage() {
 
     const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
     let currentStats: GameStats = statsString ? JSON.parse(statsString) : { totalFunds: INITIAL_FUNDS, phonesSold: 0, brandReputation: 0, level: 1, xp: 0 };
+    if (currentStats.level === undefined) currentStats.level = 1;
+    if (currentStats.xp === undefined) currentStats.xp = 0;
+
 
     if (currentStats.totalFunds < campaign.cost) {
       toast({
@@ -200,6 +204,9 @@ export default function MarketingPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {availablePhonesForPromotion.length === 0 && campaign.effectScope === 'single_model' && (
+                        <p className="text-xs text-muted-foreground mt-1">{t('noPhonesAvailableForPromotion')}</p>
+                      )}
                     </div>
                   )}
                 </CardContent>
