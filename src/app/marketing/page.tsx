@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, AlertCircle, Volume2, TrendingUp, DollarSign, Clock, Target, PlayCircle, Info, Users } from 'lucide-react'; // Added Users
+import { Loader2, AlertCircle, Volume2, TrendingUp, DollarSign, Clock, Target, PlayCircle, Info, Users, Megaphone, Tv } from 'lucide-react';
 import type { MarketingCampaignType, ActiveMarketingCampaign, PhoneDesign, GameStats, Transaction } from '@/lib/types';
 import {
     AVAILABLE_MARKETING_CAMPAIGNS,
@@ -42,14 +42,24 @@ export default function MarketingPage() {
 
   useEffect(() => {
     loadActiveCampaignAndPhones();
-    // Listen for changes from other parts of the app (e.g., market simulation completing a campaign)
     window.addEventListener('activeCampaignChanged', loadActiveCampaignAndPhones);
-    window.addEventListener('myPhonesChanged', loadActiveCampaignAndPhones); // If phones are deleted/added
+    window.addEventListener('myPhonesChanged', loadActiveCampaignAndPhones);
     return () => {
       window.removeEventListener('activeCampaignChanged', loadActiveCampaignAndPhones);
       window.removeEventListener('myPhonesChanged', loadActiveCampaignAndPhones);
     };
   }, [loadActiveCampaignAndPhones]);
+
+  const getCampaignIcon = (campaignId: string) => {
+    switch(campaignId) {
+        case 'smm_boost': return Volume2;
+        case 'tech_review_spotlight': return Tv;
+        case 'influencer_collab': return Users;
+        case 'launch_event': return Megaphone;
+        case 'global_online_blitz': return TrendingUp;
+        default: return Volume2;
+    }
+  };
 
   const handleLaunchCampaign = (campaign: MarketingCampaignType) => {
     setIsLaunching(campaign.id);
@@ -169,62 +179,67 @@ export default function MarketingPage() {
             <CardTitle>{t('availableCampaignsTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {AVAILABLE_MARKETING_CAMPAIGNS.map(campaign => (
-              <Card key={campaign.id} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center">
-                    <Volume2 className="w-5 h-5 mr-2 text-primary" />
-                    {t(campaign.nameKey)}
-                  </CardTitle>
-                  <CardDescription>{t(campaign.descriptionKey)}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm flex-grow">
-                  <p className="flex items-center"><DollarSign className="w-4 h-4 mr-1 text-muted-foreground" /> {t('campaignCost', { cost: campaign.cost.toLocaleString() })}</p>
-                  <p className="flex items-center"><Clock className="w-4 h-4 mr-1 text-muted-foreground" /> {t('campaignDuration', { duration: campaign.durationDays })}</p>
-                  <p className="flex items-center"><Target className="w-4 h-4 mr-1 text-muted-foreground" /> {t('campaignEffectScope', { scope: campaign.effectScope === 'all' ? t('activeCampaignTarget_all') : t('targetPhone')})}</p>
-                  <p className="flex items-center"><TrendingUp className="w-4 h-4 mr-1 text-muted-foreground" /> {t('campaignSaleChanceBonus', { bonus: (campaign.saleChanceBonus * 100).toFixed(0) })}</p>
-                  <p className="flex items-center"><Users className="w-4 h-4 mr-1 text-muted-foreground" /> {t('campaignBrandReputationBonus', { bonus: campaign.brandReputationBonus })}</p>
+            {AVAILABLE_MARKETING_CAMPAIGNS.map(campaign => {
+              const Icon = getCampaignIcon(campaign.id);
+              return (
+                <Card key={campaign.id} className="flex flex-col">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center">
+                      <Icon className="w-5 h-5 mr-2 text-primary" />
+                      {t(campaign.nameKey)}
+                    </CardTitle>
+                    <CardDescription>{t(campaign.descriptionKey)}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm flex-grow">
+                    <p className="flex items-center"><DollarSign className="w-4 h-4 mr-1 text-muted-foreground" /> {t('campaignCost', { cost: campaign.cost.toLocaleString() })}</p>
+                    <p className="flex items-center"><Clock className="w-4 h-4 mr-1 text-muted-foreground" /> {t('campaignDuration', { duration: campaign.durationDays })}</p>
+                    <p className="flex items-center"><Target className="w-4 h-4 mr-1 text-muted-foreground" /> {t('campaignEffectScope', { scope: campaign.effectScope === 'all' ? t('activeCampaignTarget_all') : t('targetPhone')})}</p>
+                    <p className="flex items-center"><TrendingUp className="w-4 h-4 mr-1 text-muted-foreground" /> {t('campaignSaleChanceBonus', { bonus: (campaign.saleChanceBonus * 100).toFixed(0) })}</p>
+                    <p className="flex items-center"><Users className="w-4 h-4 mr-1 text-muted-foreground" /> {t('campaignBrandReputationBonus', { bonus: campaign.brandReputationBonus })}</p>
 
-                  {campaign.effectScope === 'single_model' && (
-                    <div className="pt-2">
-                      <Label htmlFor={`select-phone-${campaign.id}`}>{t('selectPhoneToPromote')}</Label>
-                      <Select
-                        value={selectedPhoneForCampaign}
-                        onValueChange={setSelectedPhoneForCampaign}
-                        disabled={availablePhonesForPromotion.length === 0}
-                      >
-                        <SelectTrigger id={`select-phone-${campaign.id}`}>
-                          <SelectValue placeholder={availablePhonesForPromotion.length === 0 ? t('noPhonesAvailableForPromotion') : t('selectPhoneToPromote')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availablePhonesForPromotion.map(phone => (
-                            <SelectItem key={phone.id} value={phone.id}>
-                              {phone.name} (Stock: {phone.currentStock + phone.quantityListedForSale})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {availablePhonesForPromotion.length === 0 && campaign.effectScope === 'single_model' && (
-                        <p className="text-xs text-muted-foreground mt-1">{t('noPhonesAvailableForPromotion')}</p>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-                <CardFooter>
-                  <Button
-                    onClick={() => handleLaunchCampaign(campaign)}
-                    disabled={isLaunching === campaign.id || (campaign.effectScope === 'single_model' && availablePhonesForPromotion.length === 0)}
-                    className="w-full"
-                  >
-                    {isLaunching === campaign.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
-                    {t('launchCampaignButton')}
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
+                    {campaign.effectScope === 'single_model' && (
+                      <div className="pt-2">
+                        <Label htmlFor={`select-phone-${campaign.id}`}>{t('selectPhoneToPromote')}</Label>
+                        <Select
+                          value={selectedPhoneForCampaign}
+                          onValueChange={setSelectedPhoneForCampaign}
+                          disabled={availablePhonesForPromotion.length === 0}
+                        >
+                          <SelectTrigger id={`select-phone-${campaign.id}`}>
+                            <SelectValue placeholder={availablePhonesForPromotion.length === 0 ? t('noPhonesAvailableForPromotion') : t('selectPhoneToPromote')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availablePhonesForPromotion.map(phone => (
+                              <SelectItem key={phone.id} value={phone.id}>
+                                {phone.name} (Stock: {phone.currentStock + phone.quantityListedForSale})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {availablePhonesForPromotion.length === 0 && campaign.effectScope === 'single_model' && (
+                          <p className="text-xs text-muted-foreground mt-1">{t('noPhonesAvailableForPromotion')}</p>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                  <CardFooter>
+                    <Button
+                      onClick={() => handleLaunchCampaign(campaign)}
+                      disabled={isLaunching === campaign.id || (campaign.effectScope === 'single_model' && availablePhonesForPromotion.length === 0)}
+                      className="w-full"
+                    >
+                      {isLaunching === campaign.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
+                      {t('launchCampaignButton')}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              );
+            })}
           </CardContent>
         </Card>
       )}
     </div>
   );
 }
+
+    

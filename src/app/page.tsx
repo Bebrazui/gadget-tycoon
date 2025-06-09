@@ -111,7 +111,7 @@ export default function DashboardPage() {
     
     if (stateModifiedInLoop || currentActiveEvents.length !== (currentActiveEventsString ? JSON.parse(currentActiveEventsString).length : 0)) {
         localStorage.setItem(LOCAL_STORAGE_ACTIVE_EVENTS_KEY, JSON.stringify(currentActiveEvents));
-        setActiveGameEvents([...currentActiveEvents]); // Update state for UI
+        setActiveGameEvents([...currentActiveEvents]); 
     }
 
 
@@ -123,8 +123,7 @@ export default function DashboardPage() {
     if (currentActiveCampaign) {
       campaignDetails = AVAILABLE_MARKETING_CAMPAIGNS.find(c => c.id === currentActiveCampaign.campaignId);
       if (campaignDetails) {
-        // Ensure remainingDays is not negative before further processing this cycle
-        if (currentActiveCampaign.remainingDays >= 0) { // Check if campaign is still active
+        if (currentActiveCampaign.remainingDays >= 0) { 
             currentActiveCampaign.remainingDays -= catchUpIntervals;
         }
       }
@@ -139,7 +138,7 @@ export default function DashboardPage() {
           let salesForThisPhoneInInterval = 0;
           let phoneSpecificCampaignBonus = 0;
 
-          if (campaignDetails && currentActiveCampaign && currentActiveCampaign.remainingDays >= 0) { // Check if campaign is still active
+          if (campaignDetails && currentActiveCampaign && currentActiveCampaign.remainingDays >= 0) { 
             if (campaignDetails.effectScope === 'all') {
               phoneSpecificCampaignBonus = campaignDetails.saleChanceBonus;
             } else if (campaignDetails.effectScope === 'single_model' && phone.id === currentActiveCampaign.targetPhoneModelId) {
@@ -149,7 +148,7 @@ export default function DashboardPage() {
 
           let eventSaleChanceModifier = 0;
           currentActiveEvents.forEach(event => {
-            if (event.remainingDays >= 0) { // Only apply active events
+            if (event.remainingDays >= 0) { 
                 if (event.definition.type === 'global_sale_chance_modifier') {
                     eventSaleChanceModifier += event.definition.effectValue;
                 } else if (event.definition.type === 'feature_sale_chance_modifier' && event.definition.targetFeature) {
@@ -157,7 +156,7 @@ export default function DashboardPage() {
                     if (typeof event.definition.targetFeatureValue === 'boolean' && featureValue === event.definition.targetFeatureValue) {
                         eventSaleChanceModifier += event.definition.effectValue;
                     } else if (typeof event.definition.targetFeatureValue === 'number' && typeof featureValue === 'number' && featureValue >= event.definition.targetFeatureValue) {
-                        eventSaleChanceModifier += event.definition.effectValue; // e.g. screenSize >= 6.5
+                        eventSaleChanceModifier += event.definition.effectValue; 
                     }
                 }
             }
@@ -229,11 +228,11 @@ export default function DashboardPage() {
       toast({ title: t('campaignFinishedSuccessfully', { campaignName: t(campaignDetails.nameKey) }), description: t('campaignBrandReputationBonus', { bonus: campaignDetails.brandReputationBonus }) });
       localStorage.removeItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY);
       setActiveCampaign(null);
-      currentActiveCampaign = null; // Ensure it's null for the next part of the logic
+      currentActiveCampaign = null; 
       window.dispatchEvent(new CustomEvent('activeCampaignChanged'));
     } else if (currentActiveCampaign) {
       localStorage.setItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY, JSON.stringify(currentActiveCampaign));
-      setActiveCampaign({...currentActiveCampaign}); // Update state if remainingDays changed
+      setActiveCampaign({...currentActiveCampaign}); 
        stateModifiedInLoop = true;
     }
 
@@ -252,7 +251,7 @@ export default function DashboardPage() {
     checkAllAchievements(currentStats, currentPhones, toast, t, language);
 
     salesNotificationsForCycle.forEach(notification => { toast({ title: notification.title, description: notification.description, }); });
-    if (!isCatchUp && totalPhonesSoldThisCycle === 0 && !currentActiveCampaign && currentActiveEvents.length === 0) { // Less noisy when events/campaigns are running
+    if (!isCatchUp && totalPhonesSoldThisCycle === 0 && !currentActiveCampaign && currentActiveEvents.length === 0) { 
        if (currentPhones.length > 0 && currentPhones.every(p => p.quantityListedForSale === 0)) {
         toast({ title: t('marketDaySummaryTitle'), description: t('marketDayNoPhonesListed'), });
       }
@@ -288,11 +287,17 @@ export default function DashboardPage() {
       if (storedSettingsString) {
         try {
             const parsedSettings = JSON.parse(storedSettingsString) as Partial<GameSettings>;
-            currentSettings = { ...defaultGameSettings, ...parsedSettings };
-             if (typeof currentSettings.useOnlineFeatures !== 'boolean' || !['easy', 'normal', 'hard'].includes(currentSettings.difficulty)) {
-                currentSettings = { ...defaultGameSettings, ...currentSettings }; // Re-merge with defaults to ensure all fields
-                localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(currentSettings));
+            const validatedSettings: GameSettings = { ...defaultGameSettings };
+            if (typeof parsedSettings.useOnlineFeatures === 'boolean') {
+              validatedSettings.useOnlineFeatures = parsedSettings.useOnlineFeatures;
             }
+            if (parsedSettings.difficulty && ['easy', 'normal', 'hard'].includes(parsedSettings.difficulty)) {
+              validatedSettings.difficulty = parsedSettings.difficulty;
+            } else {
+                // If difficulty is invalid or missing, keep default and save
+                localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(validatedSettings));
+            }
+            currentSettings = validatedSettings;
         } catch (error) {
             console.error(t('localStorageErrorGameSettingsConsole'), error);
             localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(defaultGameSettings));
@@ -320,7 +325,7 @@ export default function DashboardPage() {
     window.addEventListener('gameStatsChanged', handleStatsUpdate);
     window.addEventListener('gameSettingsChanged', handleSettingsUpdate);
     window.addEventListener('activeCampaignChanged', handleCampaignUpdate);
-    window.addEventListener('activeEventsChanged', handleEventsUpdate); // Listener for game events
+    window.addEventListener('activeEventsChanged', handleEventsUpdate); 
 
     const lastSimTime = localStorage.getItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY);
     if (lastSimTime) {
@@ -363,13 +368,6 @@ export default function DashboardPage() {
     return t('activeMarketingCampaignInfo', { campaignName: t(campaignDetails.nameKey), remainingDays: displayRemainingDays, target: targetInfo, });
   };
 
-  const getActiveEventsInfo = () => {
-    if (activeGameEvents.length === 0) return t('noActiveGameEvents');
-    return t('activeGameEventsInfo', { 
-        events: activeGameEvents.map(event => `${t(event.definition.titleKey)} (${t('gameEventDurationLabel', {days: Math.max(0,event.remainingDays)})})`).join(', ')
-    });
-  };
-
   const getEventIcon = (event: ActiveGameEvent) => {
     if (event.definition.isNegative) return <AlertTriangle className="h-4 w-4 text-destructive" />;
     if (event.definition.type === 'component_cost_modifier' && event.definition.effectValue < 1) return <TrendingDownIcon className="h-4 w-4 text-green-500" />;
@@ -377,7 +375,7 @@ export default function DashboardPage() {
     if (event.definition.type === 'feature_sale_chance_modifier' && event.definition.effectValue > 0) return <TrendingUp className="h-4 w-4 text-green-500" />;
     if (event.definition.type === 'global_sale_chance_modifier' && event.definition.effectValue > 0) return <TrendingUp className="h-4 w-4 text-green-500" />;
     if (event.definition.type === 'global_sale_chance_modifier' && event.definition.effectValue < 0) return <TrendingDownIcon className="h-4 w-4 text-destructive" />;
-    return <CheckCircle2Icon className="h-4 w-4 text-blue-500" />; // Default positive-ish icon
+    return <CheckCircle2Icon className="h-4 w-4 text-blue-500" />; 
   };
 
 
@@ -496,3 +494,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

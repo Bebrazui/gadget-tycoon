@@ -310,9 +310,6 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
     titleKey: 'achievement_innovatorCPU_title',
     descriptionKey: 'achievement_innovatorCPU_desc',
     condition: (stats, phones, other) => {
-        // This condition will need access to the customProcessors list.
-        // The `other` parameter can be used for this.
-        // The `checkAllAchievements` function will need to load this from localStorage.
         return other?.customProcessors && other.customProcessors.length > 0;
     },
     xpReward: 75,
@@ -622,7 +619,7 @@ export const AVAILABLE_MARKETING_CAMPAIGNS: MarketingCampaignType[] = [
     cost: 500,
     durationDays: 3,
     effectScope: 'all',
-    saleChanceBonus: 0.02,
+    saleChanceBonus: 0.02, // 2%
     brandReputationBonus: 1,
   },
   {
@@ -632,8 +629,28 @@ export const AVAILABLE_MARKETING_CAMPAIGNS: MarketingCampaignType[] = [
     cost: 2000,
     durationDays: 7,
     effectScope: 'single_model',
-    saleChanceBonus: 0.08,
+    saleChanceBonus: 0.08, // 8% for target model
     brandReputationBonus: 3,
+  },
+  {
+    id: 'influencer_collab',
+    nameKey: 'campaign_influencer_collab_name',
+    descriptionKey: 'campaign_influencer_collab_desc',
+    cost: 4500,
+    durationDays: 10,
+    effectScope: 'single_model',
+    saleChanceBonus: 0.06, // 6% for target model
+    brandReputationBonus: 4,
+  },
+  {
+    id: 'launch_event',
+    nameKey: 'campaign_launch_event_name',
+    descriptionKey: 'campaign_launch_event_desc',
+    cost: 7500,
+    durationDays: 5, // Shorter, high impact duration
+    effectScope: 'single_model', // Typically for a new model
+    saleChanceBonus: 0.12, // 12% for target model during event
+    brandReputationBonus: 5,
   },
   {
     id: 'global_online_blitz',
@@ -642,7 +659,7 @@ export const AVAILABLE_MARKETING_CAMPAIGNS: MarketingCampaignType[] = [
     cost: 10000,
     durationDays: 15,
     effectScope: 'all',
-    saleChanceBonus: 0.05,
+    saleChanceBonus: 0.05, // 5% for all models
     brandReputationBonus: 5,
   },
 ];
@@ -733,3 +750,5 @@ export function calculateXpToNextLevel(level: number): number {
 
 export const MONEY_BONUS_PER_LEVEL_BASE = 250;
 export const MONEY_BONUS_FIXED_AMOUNT = 2500; // Increased
+
+    
