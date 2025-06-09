@@ -19,7 +19,8 @@ import {
     MARKET_MAX_CATCH_UP_INTERVALS,
     XP_PER_PHONE_SOLD, calculateXpToNextLevel,
     MONEY_BONUS_PER_LEVEL_BASE, MONEY_BONUS_FIXED_AMOUNT, LOCAL_STORAGE_GAME_SETTINGS_KEY,
-    DIFFICULTY_SALE_CHANCE_MODIFIERS, LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY, AVAILABLE_MARKETING_CAMPAIGNS
+    DIFFICULTY_SALE_CHANCE_MODIFIERS, LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY, AVAILABLE_MARKETING_CAMPAIGNS,
+    XP_FOR_STARTING_MARKETING_CAMPAIGN
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -93,7 +94,8 @@ export default function DashboardPage() {
         if (campaignDetails.effectScope === 'single_model') {
           campaignTargetPhoneId = currentActiveCampaign.targetPhoneModelId;
         }
-        currentActiveCampaign.remainingDays -= catchUpIntervals; // Decrease days based on catch-up or single interval
+        // Decrease days based on actual intervals processed in this simulation run
+        currentActiveCampaign.remainingDays -= catchUpIntervals;
       }
     }
 
@@ -107,7 +109,7 @@ export default function DashboardPage() {
           let salesForThisPhoneInInterval = 0;
 
           let phoneSpecificCampaignBonus = 0;
-          if (campaignDetails) {
+          if (campaignDetails && currentActiveCampaign && currentActiveCampaign.remainingDays >= 0) { // Check if campaign is still active
             if (campaignDetails.effectScope === 'all') {
               phoneSpecificCampaignBonus = campaignSaleChanceBonus;
             } else if (campaignDetails.effectScope === 'single_model' && phone.id === campaignTargetPhoneId) {
@@ -143,7 +145,7 @@ export default function DashboardPage() {
                     price: (phone.salePrice || 0).toFixed(2),
                     totalRevenue: revenueFromThisPhone.toFixed(2)
                 }),
-                icon: <HandCoins className="w-5 h-5 text-green-500" />
+                icon: React.createElement(HandCoins, {className: "w-5 h-5 text-green-500"})
             });
 
             const saleTransaction: Transaction = {
@@ -187,29 +189,29 @@ export default function DashboardPage() {
     }
 
      // Handle campaign completion
-    if (currentActiveCampaign && campaignDetails && currentActiveCampaign.remainingDays <= 0) {
+    if (currentActiveCampaign && campaignDetails && currentActiveCampaign.remainingDays < 0) { // Check if it has truly ended
       currentStats.brandReputation += campaignDetails.brandReputationBonus;
+      phonesModifiedInLoop = true; // Mark as modified to save stats
       toast({
         title: t('campaignFinishedSuccessfully', { campaignName: t(campaignDetails.nameKey) }),
         description: t('campaignBrandReputationBonus', { bonus: campaignDetails.brandReputationBonus }),
       });
       localStorage.removeItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY);
-      setActiveCampaign(null); // Update local state for UI
-      currentActiveCampaign = null; // Clear for next cycle
-      // Ensure brandReputation update is saved
-      phonesModifiedInLoop = true; // Mark as modified to save stats
+      setActiveCampaign(null);
+      currentActiveCampaign = null;
+      window.dispatchEvent(new CustomEvent('activeCampaignChanged'));
     } else if (currentActiveCampaign) {
       localStorage.setItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY, JSON.stringify(currentActiveCampaign));
-      setActiveCampaign(currentActiveCampaign); // Update local state for UI
+      setActiveCampaign(currentActiveCampaign);
     }
 
 
-    if (phonesModifiedInLoop || xpGainedThisCycle > 0) {
+    if (phonesModifiedInLoop || xpGainedThisCycle > 0 || (currentActiveCampaign === null && campaignString !== null)) { // campaignString to detect removal
       localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(currentPhones));
       localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
       localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
 
-      setGameStats(prevStats => ({...prevStats, ...currentStats}));
+      setGameStats(prevStats => ({...prevStats, ...currentStats})); // Ensure gameStats state is updated for checkAllAchievements
       setDisplayStats({
           totalFunds: `$${currentStats.totalFunds.toLocaleString(language)}`,
           phonesSold: currentStats.phonesSold.toLocaleString(language),
@@ -217,19 +219,15 @@ export default function DashboardPage() {
       window.dispatchEvent(new CustomEvent('myPhonesChanged'));
       window.dispatchEvent(new CustomEvent('gameStatsChanged'));
       window.dispatchEvent(new CustomEvent('transactionsChanged'));
-      if (currentActiveCampaign === null) { // If campaign was just removed
-         window.dispatchEvent(new CustomEvent('activeCampaignChanged'));
-      }
-    }
 
-    checkAllAchievements(currentStats, currentPhones, toast, t, language);
+      checkAllAchievements(currentStats, currentPhones, toast, t, language);
+    }
 
 
     salesNotificationsForCycle.forEach(notification => {
       toast({
         title: notification.title,
         description: notification.description,
-        // icon: notification.icon, // Toast component doesn't directly support an icon prop this way. It's usually done via custom JSX in description or title.
       });
     });
 
@@ -288,11 +286,11 @@ export default function DashboardPage() {
         try {
             currentSettings = JSON.parse(storedSettingsString);
             if (typeof currentSettings.useOnlineFeatures !== 'boolean' || !['easy', 'normal', 'hard'].includes(currentSettings.difficulty)) {
-                currentSettings = { ...defaultGameSettings, ...currentSettings };
+                currentSettings = { ...defaultGameSettings, ...currentSettings }; // Merge and ensure valid defaults
                 localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(currentSettings));
             }
         } catch (error) {
-            console.error("Error parsing game settings from localStorage:", error);
+            console.error(t('localStorageErrorGameSettingsConsole'), error);
             localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(defaultGameSettings));
         }
       } else {
@@ -340,7 +338,6 @@ export default function DashboardPage() {
         }
       }
     } else {
-
       localStorage.setItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, Date.now().toString());
     }
 
@@ -375,10 +372,13 @@ export default function DashboardPage() {
     if (campaignDetails.effectScope === 'single_model' && activeCampaign.targetPhoneModelName) {
       targetInfo = activeCampaign.targetPhoneModelName;
     }
+    
+    // Ensure remainingDays is not negative for display
+    const displayRemainingDays = Math.max(0, activeCampaign.remainingDays);
 
     return t('activeMarketingCampaignInfo', {
       campaignName: t(campaignDetails.nameKey),
-      remainingDays: activeCampaign.remainingDays,
+      remainingDays: displayRemainingDays,
       target: targetInfo,
     });
   };
@@ -478,3 +478,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
