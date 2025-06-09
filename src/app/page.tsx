@@ -10,7 +10,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { useTranslation } from '@/hooks/useTranslation';
-import type { GameStats, PhoneDesign, Transaction, GameSettings, ActiveMarketingCampaign, MarketingCampaignType, ActiveGameEvent, GameEventDefinition } from '@/lib/types';
+import type { GameStats, PhoneDesign, Transaction, GameSettings, ActiveMarketingCampaign, MarketingCampaignType, ActiveGameEvent, GameEventDefinition, Employee } from '@/lib/types'; // Added Employee
 import {
     LOCAL_STORAGE_GAME_STATS_KEY, INITIAL_FUNDS, LOCAL_STORAGE_MY_PHONES_KEY,
     LOCAL_STORAGE_TRANSACTIONS_KEY, MARKET_SIMULATION_INTERVAL,
@@ -21,7 +21,8 @@ import {
     MONEY_BONUS_PER_LEVEL_BASE, MONEY_BONUS_FIXED_AMOUNT, LOCAL_STORAGE_GAME_SETTINGS_KEY,
     DIFFICULTY_SALE_CHANCE_MODIFIERS, LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY, AVAILABLE_MARKETING_CAMPAIGNS,
     XP_FOR_STARTING_MARKETING_CAMPAIGN,
-    LOCAL_STORAGE_ACTIVE_EVENTS_KEY, AVAILABLE_GAME_EVENTS, MAX_ACTIVE_GAME_EVENTS, GAME_EVENT_PROBABILITY_PER_SIMULATION
+    LOCAL_STORAGE_ACTIVE_EVENTS_KEY, AVAILABLE_GAME_EVENTS, MAX_ACTIVE_GAME_EVENTS, GAME_EVENT_PROBABILITY_PER_SIMULATION,
+    LOCAL_STORAGE_HIRED_EMPLOYEES_KEY // Added
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -55,6 +56,7 @@ export default function DashboardPage() {
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [activeCampaign, setActiveCampaign] = useState<ActiveMarketingCampaign | null>(null);
   const [activeGameEvents, setActiveGameEvents] = useState<ActiveGameEvent[]>([]);
+  const [hiredEmployees, setHiredEmployees] = useState<Employee[]>([]); // Added for salaries
 
 
   const performMarketSimulation = useCallback((isCatchUp = false, catchUpIntervals = 1) => {
@@ -79,7 +81,6 @@ export default function DashboardPage() {
     let currentTransactionsString = localStorage.getItem(LOCAL_STORAGE_TRANSACTIONS_KEY);
     let currentTransactions: Transaction[] = currentTransactionsString ? JSON.parse(currentTransactionsString) : [];
 
-    // Handle Active Game Events
     let currentActiveEventsString = localStorage.getItem(LOCAL_STORAGE_ACTIVE_EVENTS_KEY);
     let currentActiveEvents: ActiveGameEvent[] = currentActiveEventsString ? JSON.parse(currentActiveEventsString) : [];
     
@@ -93,7 +94,6 @@ export default function DashboardPage() {
         return true;
       });
 
-    // Potentially trigger new game events
     if (!isCatchUp && currentActiveEvents.length < MAX_ACTIVE_GAME_EVENTS && Math.random() < GAME_EVENT_PROBABILITY_PER_SIMULATION * catchUpIntervals) {
         const availableToTrigger = AVAILABLE_GAME_EVENTS.filter(def => !currentActiveEvents.some(active => active.eventId === def.id));
         if (availableToTrigger.length > 0) {
@@ -112,10 +112,9 @@ export default function DashboardPage() {
     if (stateModifiedInLoop || currentActiveEvents.length !== (currentActiveEventsString ? JSON.parse(currentActiveEventsString).length : 0)) {
         localStorage.setItem(LOCAL_STORAGE_ACTIVE_EVENTS_KEY, JSON.stringify(currentActiveEvents));
         setActiveGameEvents([...currentActiveEvents]); 
+        window.dispatchEvent(new CustomEvent('activeEventsChanged'));
     }
 
-
-    // Handle active marketing campaign
     let campaignString = localStorage.getItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY);
     let currentActiveCampaign: ActiveMarketingCampaign | null = campaignString ? JSON.parse(campaignString) : null;
     let campaignDetails: MarketingCampaignType | undefined = undefined;
@@ -205,10 +204,37 @@ export default function DashboardPage() {
       });
     }
 
+    // Deduct salaries
+    const hiredEmployeesString = localStorage.getItem(LOCAL_STORAGE_HIRED_EMPLOYEES_KEY);
+    const currentHiredEmployees: Employee[] = hiredEmployeesString ? JSON.parse(hiredEmployeesString) : [];
+    if (currentHiredEmployees.length > 0) {
+      const totalSalaryCost = currentHiredEmployees.reduce((sum, emp) => sum + emp.salaryPerCycle, 0) * catchUpIntervals;
+      if (currentStats.totalFunds >= totalSalaryCost) {
+        currentStats.totalFunds -= totalSalaryCost;
+        currentTransactions.push({
+          id: `txn_salaries_${Date.now()}`,
+          date: new Date().toISOString(),
+          description: `transactionSalariesPaid{{count:${currentHiredEmployees.length}}}`,
+          amount: -totalSalaryCost,
+          type: 'expense',
+        });
+        if (!isCatchUp) { // Only toast for non-catchup simulation
+            toast({ title: t('salariesPaidNotification'), description: t('salariesPaidDesc', { amount: totalSalaryCost.toLocaleString(), count: currentHiredEmployees.length }) });
+        }
+        stateModifiedInLoop = true;
+      } else {
+        if (!isCatchUp) {
+             toast({ variant: "destructive", title: t('salariesFailedNotification'), description: t('salariesFailedDesc', { amount: totalSalaryCost.toLocaleString() }) });
+        }
+        // Future: implement consequences for not paying salaries
+      }
+    }
+
+
     if (xpGainedThisCycle > 0) {
       currentStats.xp += xpGainedThisCycle;
       stateModifiedInLoop = true;
-      toast({ title: t('xpGainedNotification', { amount: xpGainedThisCycle }) });
+      if (!isCatchUp) toast({ title: t('xpGainedNotification', { amount: xpGainedThisCycle }) });
 
       let xpToNext = calculateXpToNextLevel(currentStats.level);
       while (currentStats.xp >= xpToNext) {
@@ -217,15 +243,17 @@ export default function DashboardPage() {
         xpToNext = calculateXpToNextLevel(currentStats.level);
         const moneyBonus = MONEY_BONUS_FIXED_AMOUNT + (currentStats.level * MONEY_BONUS_PER_LEVEL_BASE);
         currentStats.totalFunds += moneyBonus;
-        toast({ title: t('levelUpNotificationTitle'), description: t('levelUpNotificationDesc', { level: currentStats.level }) });
-        toast({ title: t('moneyBonusNotification', {amount: moneyBonus.toLocaleString(language)}), description: t('congratulationsOnLevelUp') });
+        if (!isCatchUp){
+            toast({ title: t('levelUpNotificationTitle'), description: t('levelUpNotificationDesc', { level: currentStats.level }) });
+            toast({ title: t('moneyBonusNotification', {amount: moneyBonus.toLocaleString(language)}), description: t('congratulationsOnLevelUp') });
+        }
       }
     }
 
     if (currentActiveCampaign && campaignDetails && currentActiveCampaign.remainingDays < 0) {
       currentStats.brandReputation += campaignDetails.brandReputationBonus;
       stateModifiedInLoop = true;
-      toast({ title: t('campaignFinishedSuccessfully', { campaignName: t(campaignDetails.nameKey) }), description: t('campaignBrandReputationBonus', { bonus: campaignDetails.brandReputationBonus }) });
+      if (!isCatchUp) toast({ title: t('campaignFinishedSuccessfully', { campaignName: t(campaignDetails.nameKey) }), description: t('campaignBrandReputationBonus', { bonus: campaignDetails.brandReputationBonus }) });
       localStorage.removeItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY);
       setActiveCampaign(null);
       currentActiveCampaign = null; 
@@ -248,13 +276,15 @@ export default function DashboardPage() {
       window.dispatchEvent(new CustomEvent('transactionsChanged'));
     }
     
-    checkAllAchievements(currentStats, currentPhones, toast, t, language);
+    checkAllAchievements(currentStats, currentPhones, toast, t, language, {hiredEmployees: currentHiredEmployees});
 
-    salesNotificationsForCycle.forEach(notification => { toast({ title: notification.title, description: notification.description, }); });
-    if (!isCatchUp && totalPhonesSoldThisCycle === 0 && !currentActiveCampaign && currentActiveEvents.length === 0) { 
-       if (currentPhones.length > 0 && currentPhones.every(p => p.quantityListedForSale === 0)) {
-        toast({ title: t('marketDaySummaryTitle'), description: t('marketDayNoPhonesListed'), });
-      }
+    if (!isCatchUp) { // Only show these toasts for regular simulation runs
+        salesNotificationsForCycle.forEach(notification => { toast({ title: notification.title, description: notification.description, }); });
+        if (totalPhonesSoldThisCycle === 0 && !currentActiveCampaign && currentActiveEvents.length === 0) { 
+            if (currentPhones.length > 0 && currentPhones.every(p => p.quantityListedForSale === 0)) {
+                toast({ title: t('marketDaySummaryTitle'), description: t('marketDayNoPhonesListed'), });
+            }
+        }
     }
     localStorage.setItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, Date.now().toString());
   }, [t, language, toast]);
@@ -266,7 +296,7 @@ export default function DashboardPage() {
       let currentStats: GameStats = { ...defaultGameStats };
       if (storedStatsString) {
         try {
-          const parsedStats = JSON.parse(storedStatsString) as GameStats;
+          const parsedStats = JSON.parse(storedStatsString) as Partial<GameStats>;
           if (typeof parsedStats.totalFunds === 'number' && typeof parsedStats.phonesSold === 'number') {
               currentStats = { ...defaultGameStats, ...parsedStats, };
           } else { localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(defaultGameStats)); }
@@ -294,7 +324,6 @@ export default function DashboardPage() {
             if (parsedSettings.difficulty && ['easy', 'normal', 'hard'].includes(parsedSettings.difficulty)) {
               validatedSettings.difficulty = parsedSettings.difficulty;
             } else {
-                // If difficulty is invalid or missing, keep default and save
                 localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(validatedSettings));
             }
             currentSettings = validatedSettings;
@@ -311,21 +340,30 @@ export default function DashboardPage() {
       const eventsString = localStorage.getItem(LOCAL_STORAGE_ACTIVE_EVENTS_KEY);
       setActiveGameEvents(eventsString ? JSON.parse(eventsString) : []);
 
+      const hiredEmployeesString = localStorage.getItem(LOCAL_STORAGE_HIRED_EMPLOYEES_KEY);
+      const currentHiredEmployees = hiredEmployeesString ? JSON.parse(hiredEmployeesString) : [];
+      setHiredEmployees(currentHiredEmployees);
+
+
       const phonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
       const phones: PhoneDesign[] = phonesString ? JSON.parse(phonesString) : [];
-      checkAllAchievements(currentStats, phones, toast, t, language);
+      checkAllAchievements(currentStats, phones, toast, t, language, {hiredEmployees: currentHiredEmployees});
     };
 
     loadGameData();
     const handleStatsUpdate = () => { loadGameData(); };
     const handleSettingsUpdate = () => { loadGameData(); };
     const handleCampaignUpdate = () => { const campaignString = localStorage.getItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY); setActiveCampaign(campaignString ? JSON.parse(campaignString) : null); };
-    const handleEventsUpdate = () => { const eventsString = localStorage.getItem(LOCAL_STORAGE_ACTIVE_EVENTS_KEY); setActiveGameEvents(eventsString ? JSON.parse(eventsString) : []); };
+    const handleEventsUpdate = () => { const eventsString = localStorage.getItem(LOCAL_STORAGE_ACTIVE_EVENTS_KEY); setActiveGameEvents(eventsString ? JSON.parse(eventsString) : []); }; 
+    const handleHiredEmployeesUpdate = () => { const hiredString = localStorage.getItem(LOCAL_STORAGE_HIRED_EMPLOYEES_KEY); setHiredEmployees(hiredString ? JSON.parse(hiredString) : []); };
+
 
     window.addEventListener('gameStatsChanged', handleStatsUpdate);
     window.addEventListener('gameSettingsChanged', handleSettingsUpdate);
     window.addEventListener('activeCampaignChanged', handleCampaignUpdate);
     window.addEventListener('activeEventsChanged', handleEventsUpdate); 
+    window.addEventListener('hiredEmployeesChanged', handleHiredEmployeesUpdate);
+
 
     const lastSimTime = localStorage.getItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY);
     if (lastSimTime) {
@@ -345,6 +383,7 @@ export default function DashboardPage() {
         window.removeEventListener('gameSettingsChanged', handleSettingsUpdate);
         window.removeEventListener('activeCampaignChanged', handleCampaignUpdate);
         window.removeEventListener('activeEventsChanged', handleEventsUpdate);
+        window.removeEventListener('hiredEmployeesChanged', handleHiredEmployeesUpdate);
         if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
     };
   }, [language, performMarketSimulation, t, toast]);
@@ -467,7 +506,10 @@ export default function DashboardPage() {
              <Button asChild variant="outline" size="lg">
                 <Link href="/procurement">{t('btnClientContracts')}</Link>
             </Button>
-            <Button asChild variant="default" size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground sm:col-span-2">
+            <Button asChild variant="default" size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Link href="/hr">{t('hr')}</Link>
+            </Button>
+             <Button asChild variant="default" size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
               <Link href="/trends">{t('btnForecastTrends')}</Link>
             </Button>
           </CardContent>

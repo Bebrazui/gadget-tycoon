@@ -1,5 +1,6 @@
 
 import { z } from 'zod';
+import type { LucideIcon } from 'lucide-react'; // Ensure LucideIcon is imported
 
 export interface Trend {
   feature: string;
@@ -132,9 +133,9 @@ export interface CustomProcessor {
   coreCount: number;
   clockSpeed: number; // in GHz
   manufacturingCost: number;
-  researchCost: number;
+  researchCost: number; // This is now 0 for components after tier is researched
   type: 'custom_processor';
-  tierId?: string; // Link to the researched tier
+  tierId: string; // Link to the researched tier, now mandatory
 }
 
 export interface CustomDisplay {
@@ -144,9 +145,9 @@ export interface CustomDisplay {
   technology: string;
   refreshRate: number;
   manufacturingCost: number;
-  researchCost: number;
+  researchCost: number; // This is now 0 for components after tier is researched
   type: 'custom_display';
-  tierId?: string; // Link to the researched tier
+  tierId: string; // Link to the researched tier, now mandatory
 }
 
 
@@ -273,7 +274,8 @@ export type AchievementId =
   | 'rookieSeller'
   | 'firstMillionNetWorth'
   | 'innovatorCPU'
-  | 'prolificDesigner';
+  | 'prolificDesigner'
+  | 'firstHire'; // New achievement
 
 export interface Achievement {
   id: AchievementId;
@@ -321,6 +323,15 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
     condition: (stats, phones) => phones.length >= 3,
     xpReward: 50,
   },
+  {
+    id: 'firstHire',
+    titleKey: 'achievement_firstHire_title',
+    descriptionKey: 'achievement_firstHire_desc',
+    condition: (stats, phones, other) => {
+      return other?.hiredEmployees && other.hiredEmployees.length > 0;
+    },
+    xpReward: 40,
+  }
 ];
 // --- End Achievements System ---
 
@@ -364,6 +375,31 @@ export interface ActiveGameEvent {
     remainingDays: number;
     definition: GameEventDefinition; // Store the full definition for easy access to its properties
 }
+
+// --- Employee System ---
+export type EmployeeRole = 'researcher' | 'engineer' | 'marketer' | 'hr_specialist' | 'finance_analyst';
+
+export interface Employee {
+  id: string;
+  nameKey: string; // For translation of name
+  role: EmployeeRole;
+  descriptionKey: string; // For translation of description/effect
+  hireCost: number;
+  salaryPerCycle: number; // Salary per market simulation cycle
+  iconName: string; // Name of the Lucide icon
+  // Effects will be added later, e.g.:
+  // effectType: 'rd_speed_boost' | 'production_cost_reduction' | 'marketing_effectiveness';
+  // effectValue: number; // e.g., 0.1 for 10%
+}
+
+export const AVAILABLE_EMPLOYEES: Employee[] = [
+  { id: 'emp_rd_01', nameKey: 'employee_dr_elin_nova_name', role: 'researcher', descriptionKey: 'employee_dr_elin_nova_desc', hireCost: 15000, salaryPerCycle: 1000, iconName: 'FlaskConical' },
+  { id: 'emp_eng_01', nameKey: 'employee_kai_miller_name', role: 'engineer', descriptionKey: 'employee_kai_miller_desc', hireCost: 12000, salaryPerCycle: 800, iconName: 'Wrench' },
+  { id: 'emp_mkt_01', nameKey: 'employee_sophia_chen_name', role: 'marketer', descriptionKey: 'employee_sophia_chen_desc', hireCost: 10000, salaryPerCycle: 700, iconName: 'Megaphone' },
+  { id: 'emp_hr_01', nameKey: 'employee_alex_rivera_name', role: 'hr_specialist', descriptionKey: 'employee_alex_rivera_desc', hireCost: 8000, salaryPerCycle: 500, iconName: 'Users2' },
+  { id: 'emp_fin_01', nameKey: 'employee_ben_carter_name', role: 'finance_analyst', descriptionKey: 'employee_ben_carter_desc', hireCost: 11000, salaryPerCycle: 750, iconName: 'Banknote' },
+];
+// --- End Employee System ---
 
 
 // --- Genkit Flow Schemas and Types ---
@@ -713,6 +749,7 @@ export const LOCAL_STORAGE_GAME_SETTINGS_KEY = 'gadgetTycoon_gameSettings';
 export const LOCAL_STORAGE_ACHIEVEMENTS_KEY = 'gadgetTycoon_achievements';
 export const LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY = 'gadgetTycoon_activeCampaign';
 export const LOCAL_STORAGE_ACTIVE_EVENTS_KEY = 'gadgetTycoon_activeEvents';
+export const LOCAL_STORAGE_HIRED_EMPLOYEES_KEY = 'gadgetTycoon_hiredEmployees';
 
 
 export const SALE_MARKUP_FACTOR = 1.5;
@@ -740,8 +777,9 @@ export const GAME_EVENT_PROBABILITY_PER_SIMULATION = 0.10; // 10% chance per mar
 export const XP_FOR_DESIGNING_PHONE = 50;
 export const XP_PER_PHONE_SOLD = 20; // Increased
 export const XP_FOR_RESEARCHING_COMPONENT = 100; // Increased
-export const XP_FOR_RESEARCHING_TIER = 150; // Increased from 100
-export const XP_FOR_STARTING_MARKETING_CAMPAIGN = 30; // Increased
+export const XP_FOR_RESEARCHING_TIER = 150;
+export const XP_FOR_STARTING_MARKETING_CAMPAIGN = 30;
+export const XP_FOR_HIRING_EMPLOYEE = 25;
 
 
 export function calculateXpToNextLevel(level: number): number {

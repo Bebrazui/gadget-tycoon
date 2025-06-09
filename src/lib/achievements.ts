@@ -1,6 +1,6 @@
 
-import type { AchievementId, GameStats, PhoneDesign, Achievement, CustomProcessor } from './types';
-import { ACHIEVEMENT_DEFINITIONS, LOCAL_STORAGE_ACHIEVEMENTS_KEY, LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY, LOCAL_STORAGE_GAME_STATS_KEY } from './types';
+import type { AchievementId, GameStats, PhoneDesign, Achievement, CustomProcessor, Employee } from './types'; // Added Employee
+import { ACHIEVEMENT_DEFINITIONS, LOCAL_STORAGE_ACHIEVEMENTS_KEY, LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_HIRED_EMPLOYEES_KEY } from './types'; // Added LOCAL_STORAGE_HIRED_EMPLOYEES_KEY
 import type { toast as ToastType } from "@/hooks/use-toast";
 import type { Language } from '@/context/LanguageContext';
 
@@ -11,7 +11,8 @@ function checkAndUnlockAchievement(
   phones: PhoneDesign[],
   toast: typeof ToastType,
   t: (key: string, replacements?: Record<string, string | number>) => string,
-  language: string // language parameter was unused, can be removed if not needed by a specific achievement logic
+  language: string, 
+  otherData?: any // Made otherData optional
 ) {
   const achievement = ACHIEVEMENT_DEFINITIONS.find(a => a.id === achievementId);
   if (!achievement) return;
@@ -23,19 +24,30 @@ function checkAndUnlockAchievement(
     return; // Already unlocked
   }
 
-  let otherData: any = {};
-  if (achievementId === 'innovatorCPU') {
+  let dataForCondition = { ...otherData }; // Start with any passed otherData
+
+  if (achievementId === 'innovatorCPU' && !dataForCondition.customProcessors) {
     try {
         const customProcessors = JSON.parse(localStorage.getItem(LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY) || '[]') as CustomProcessor[];
-        otherData.customProcessors = customProcessors;
+        dataForCondition.customProcessors = customProcessors;
     } catch (e) {
         console.error("Error parsing custom processors for achievement check:", e);
-        otherData.customProcessors = [];
+        dataForCondition.customProcessors = [];
+    }
+  }
+
+  if (achievementId === 'firstHire' && !dataForCondition.hiredEmployees) {
+    try {
+        const hiredEmployees = JSON.parse(localStorage.getItem(LOCAL_STORAGE_HIRED_EMPLOYEES_KEY) || '[]') as Employee[];
+        dataForCondition.hiredEmployees = hiredEmployees;
+    } catch (e) {
+        console.error("Error parsing hired employees for achievement check:", e);
+        dataForCondition.hiredEmployees = [];
     }
   }
 
 
-  if (achievement.condition(stats, phones, otherData)) {
+  if (achievement.condition(stats, phones, dataForCondition)) {
     unlockedAchievements.push(achievementId);
     localStorage.setItem(LOCAL_STORAGE_ACHIEVEMENTS_KEY, JSON.stringify(unlockedAchievements));
 
@@ -50,7 +62,7 @@ function checkAndUnlockAchievement(
 
     toast({
       title: t('achievementUnlockedToastTitle'),
-      description: t(achievement.descriptionKey),
+      description: `${t(achievement.titleKey)}: ${t(achievement.descriptionKey)} (+${achievement.xpReward} XP)`,
     });
   }
 }
@@ -61,9 +73,12 @@ export function checkAllAchievements(
   phones: PhoneDesign[],
   toast: typeof ToastType,
   t: (key: string, replacements?: Record<string, string | number>) => string,
-  language: string
+  language: string,
+  otherData?: any // Made otherData optional
 ) {
   ACHIEVEMENT_DEFINITIONS.forEach(achievement => {
-    checkAndUnlockAchievement(achievement.id, stats, phones, toast, t, language);
+    checkAndUnlockAchievement(achievement.id, stats, phones, toast, t, language, otherData);
   });
 }
+
+    

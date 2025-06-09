@@ -25,7 +25,8 @@ const navItemTitleKeys: Record<string, string> = {
   '/rd': 'pageTitleRD',
   '/settings': 'pageTitleSettings',
   '/reviews': 'pageTitleReviews',
-  '/marketing': 'pageTitleMarketing', // Added marketing page title
+  '/marketing': 'pageTitleMarketing',
+  '/hr': 'pageTitleHR', // Added HR page title
 };
 
 const defaultInitialHeaderStats: Pick<GameStats, 'level' | 'xp'> = {
@@ -121,3 +122,5 @@ export function PageHeader() {
     </header>
   );
 }
+
+    

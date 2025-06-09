@@ -24,6 +24,7 @@ import {
   Settings,
   MessageSquareText,
   Volume2, // Added for Marketing
+  Users2, // Icon for HR
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -42,7 +43,8 @@ export function SidebarItems() {
       { href: '/procurement', labelKey: 'clientContracts', icon: Briefcase },
       { href: '/rd', labelKey: 'rd', icon: FlaskConical },
       { href: '/brand', labelKey: 'brand', icon: Award },
-      { href: '/marketing', labelKey: 'marketing', icon: Volume2 }, // Added Marketing
+      { href: '/marketing', labelKey: 'marketing', icon: Volume2 },
+      { href: '/hr', labelKey: 'hr', icon: Users2 }, // New HR page
       { href: '/market', labelKey: 'marketAnalysis', icon: LineChart },
       { href: '/financials', labelKey: 'financials', icon: Banknote },
       { href: '/reviews', labelKey: 'customerReviews', icon: MessageSquareText },
@@ -101,3 +103,5 @@ export function SidebarItems() {
     </>
   );
 }
+
+    
