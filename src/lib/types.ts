@@ -15,9 +15,9 @@ export interface PhoneComponentOption {
   coreCount?: number; // For processors
   clockSpeed?: number; // For processors
   // For displays (used in design page after R&D)
-  resolutionCategory?: string; 
+  resolutionCategory?: string;
   technology?: string;
-  refreshRateValue?: number; 
+  refreshRateValue?: number;
 }
 
 export interface CustomProcessor {
@@ -86,6 +86,7 @@ export interface PhoneDesign {
   currentStock: number;
 
   review?: string;
+  reviewType?: 'ai' | 'local' | 'local_short';
   imageUrl?: string;
 
   salePrice: number;
@@ -156,6 +157,85 @@ export interface ClientContract {
   status: 'available' | 'accepted' | 'in_progress' | 'submitted' | 'completed_success' | 'completed_failed_specs' | 'completed_failed_deadline';
   acceptedDate?: string; // ISO string, set when accepted
 }
+
+export interface Achievement {
+  id: AchievementId;
+  titleKey: string;
+  descriptionKey: string;
+  condition: (stats: GameStats, phones: PhoneDesign[], other?: any) => boolean; // other can be used for specific data like researched components or contracts
+  xpReward: number;
+  // brandReputationReward?: number; // Optional, can be added later
+}
+
+export type AchievementId =
+  | 'rookieSeller'
+  | 'firstMillionNetWorth'
+  | 'innovatorCPU'
+  | 'prolificDesigner'
+  | 'firstSale';
+  // Add more achievement IDs here
+
+export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
+  {
+    id: 'firstSale',
+    titleKey: 'achievement_firstSale_title',
+    descriptionKey: 'achievement_firstSale_desc',
+    condition: (stats) => stats.phonesSold > 0,
+    xpReward: 25,
+  },
+  {
+    id: 'rookieSeller',
+    titleKey: 'achievement_rookieSeller_title',
+    descriptionKey: 'achievement_rookieSeller_desc',
+    condition: (stats) => stats.phonesSold >= 10,
+    xpReward: 50,
+  },
+  {
+    id: 'firstMillionNetWorth',
+    titleKey: 'achievement_firstMillionNetWorth_title',
+    descriptionKey: 'achievement_firstMillionNetWorth_desc',
+    condition: (stats) => stats.totalFunds >= 1000000,
+    xpReward: 200,
+  },
+  {
+    id: 'innovatorCPU',
+    titleKey: 'achievement_innovatorCPU_title',
+    descriptionKey: 'achievement_innovatorCPU_desc',
+    condition: (stats, phones, other) => {
+        const customProcessors = JSON.parse(localStorage.getItem(LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY) || '[]') as CustomProcessor[];
+        return customProcessors.length > 0;
+    },
+    xpReward: 75,
+  },
+  {
+    id: 'prolificDesigner',
+    titleKey: 'achievement_prolificDesigner_title',
+    descriptionKey: 'achievement_prolificDesigner_desc',
+    condition: (stats, phones) => phones.length >= 3,
+    xpReward: 50,
+  },
+];
+
+
+export interface MarketingCampaignType {
+  id: string;
+  nameKey: string;
+  descriptionKey: string;
+  cost: number;
+  durationDays: number; // In "market simulation days"
+  effectScope: 'all' | 'single_model'; // Does it affect all player phones or a specific model?
+  saleChanceBonus: number; // e.g., 0.05 for +5% chance per unit
+  brandReputationBonus: number; // Points added to brand reputation on completion
+}
+
+export interface ActiveMarketingCampaign {
+  campaignId: string;
+  targetPhoneModelId?: string; // If effectScope is 'single_model'
+  targetPhoneModelName?: string; // For display purposes
+  remainingDays: number;
+  startDate: string; // ISO date string
+}
+
 
 // --- Genkit Flow Schemas and Types ---
 
@@ -412,6 +492,39 @@ export const VIDEO_RESOLUTION_OPTIONS: PhoneComponent = {
     ]
 };
 
+export const AVAILABLE_MARKETING_CAMPAIGNS: MarketingCampaignType[] = [
+  {
+    id: 'smm_boost',
+    nameKey: 'campaign_smm_boost_name',
+    descriptionKey: 'campaign_smm_boost_desc',
+    cost: 500,
+    durationDays: 3, // Short duration
+    effectScope: 'all',
+    saleChanceBonus: 0.02, // +2% sale chance for all phones
+    brandReputationBonus: 1,
+  },
+  {
+    id: 'tech_review_spotlight',
+    nameKey: 'campaign_tech_review_name',
+    descriptionKey: 'campaign_tech_review_desc',
+    cost: 2000,
+    durationDays: 7, // Medium duration
+    effectScope: 'single_model', // Requires selecting a phone model
+    saleChanceBonus: 0.08, // +8% sale chance for the specific model
+    brandReputationBonus: 3,
+  },
+  {
+    id: 'global_online_blitz',
+    nameKey: 'campaign_global_blitz_name',
+    descriptionKey: 'campaign_global_blitz_desc',
+    cost: 10000,
+    durationDays: 15, // Long duration
+    effectScope: 'all',
+    saleChanceBonus: 0.05, // +5% sale chance for all, but longer duration and higher cost
+    brandReputationBonus: 5,
+  },
+];
+
 export const LOCAL_STORAGE_GAME_STATS_KEY = 'gadgetTycoon_gameStats';
 export const LOCAL_STORAGE_TRANSACTIONS_KEY = 'gadgetTycoon_transactions';
 export const LOCAL_STORAGE_MY_PHONES_KEY = 'myPhones';
@@ -422,18 +535,20 @@ export const LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY = 'gadgetTycoon_lastMarket
 export const LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY = 'gadgetTycoon_customProcessors';
 export const LOCAL_STORAGE_CUSTOM_DISPLAYS_KEY = 'gadgetTycoon_customDisplays';
 export const LOCAL_STORAGE_GAME_SETTINGS_KEY = 'gadgetTycoon_gameSettings';
+export const LOCAL_STORAGE_ACHIEVEMENTS_KEY = 'gadgetTycoon_achievements';
+export const LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY = 'gadgetTycoon_activeCampaign';
 
 
 export const SALE_MARKUP_FACTOR = 1.5;
-export const INITIAL_FUNDS = 1000; // Reduced initial funds
-export const BASE_DESIGN_ASSEMBLY_COST = 5; // Reduced base assembly cost
+export const INITIAL_FUNDS = 5000; // Adjusted initial funds
+export const BASE_DESIGN_ASSEMBLY_COST = 20; // Adjusted base assembly cost
 
 // Market Simulation Parameters
-export const BASE_MARKET_SALE_CHANCE_PER_UNIT = 0.08; // Base chance, will be modified by level and difficulty
-export const MARKET_SIMULATION_INTERVAL = 60000; // 60 seconds
-export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 2;
+export const BASE_MARKET_SALE_CHANCE_PER_UNIT = 0.02; // Base chance, will be modified by level and difficulty
+export const MARKET_SIMULATION_INTERVAL = 30000; // 30 seconds for more frequent feedback
+export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 3; // Max sales for one phone model in one tick
 export const MARKET_CATCH_UP_THRESHOLD_MINUTES = 5;
-export const MARKET_MAX_CATCH_UP_INTERVALS = 10;
+export const MARKET_MAX_CATCH_UP_INTERVALS = 20; // Can catch up more if offline for longer
 
 // Difficulty Modifiers for sale chance
 export const DIFFICULTY_SALE_CHANCE_MODIFIERS: Record<GameDifficulty, number> = {
@@ -446,14 +561,14 @@ export const MAX_AVAILABLE_CONTRACTS = 3;
 
 // Leveling System
 export const XP_FOR_DESIGNING_PHONE = 50;
-export const XP_PER_PHONE_SOLD = 2;
-export const XP_FOR_RESEARCHING_COMPONENT = 30;
+export const XP_PER_PHONE_SOLD = 5; // Increased XP per sale
+export const XP_FOR_RESEARCHING_COMPONENT = 75; // Increased XP for R&D
+export const XP_FOR_STARTING_MARKETING_CAMPAIGN = 20;
+
 
 export function calculateXpToNextLevel(level: number): number {
-  return level * 100 + 50 * (level -1); // Slightly increasing XP needed for next level
+  return 100 + (level -1) * 75; // Slightly adjusted curve
 }
 
 export const MONEY_BONUS_PER_LEVEL_BASE = 250;
-export const MONEY_BONUS_FIXED_AMOUNT = 100;
-
-    
+export const MONEY_BONUS_FIXED_AMOUNT = 1000; // Increased fixed bonus

@@ -4,14 +4,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StatCard } from "@/components/shared/StatCard";
 import { SectionTitle } from "@/components/shared/SectionTitle";
-import { DollarSign, Smartphone, Users, TrendingUp, HandCoins, Zap, Info, Bell } from "lucide-react";
+import { DollarSign, Smartphone, Users, TrendingUp, HandCoins, Zap, Info, Bell, Volume2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { useTranslation } from "@/hooks/useTranslation";
-import type { GameStats, PhoneDesign, Transaction, GameSettings } from '@/lib/types';
-import { 
+import { useTranslation } from '@/hooks/useTranslation';
+import type { GameStats, PhoneDesign, Transaction, GameSettings, ActiveMarketingCampaign, MarketingCampaignType } from '@/lib/types';
+import {
     LOCAL_STORAGE_GAME_STATS_KEY, INITIAL_FUNDS, LOCAL_STORAGE_MY_PHONES_KEY,
     LOCAL_STORAGE_TRANSACTIONS_KEY, MARKET_SIMULATION_INTERVAL,
     MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL, BASE_MARKET_SALE_CHANCE_PER_UNIT,
@@ -19,15 +19,17 @@ import {
     MARKET_MAX_CATCH_UP_INTERVALS,
     XP_PER_PHONE_SOLD, calculateXpToNextLevel,
     MONEY_BONUS_PER_LEVEL_BASE, MONEY_BONUS_FIXED_AMOUNT, LOCAL_STORAGE_GAME_SETTINGS_KEY,
-    DIFFICULTY_SALE_CHANCE_MODIFIERS
+    DIFFICULTY_SALE_CHANCE_MODIFIERS, LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY, AVAILABLE_MARKETING_CAMPAIGNS
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { checkAllAchievements } from '@/lib/achievements';
+
 
 const defaultGameStats: GameStats = {
   totalFunds: INITIAL_FUNDS,
   phonesSold: 0,
-  brandReputation: 0, 
+  brandReputation: 0,
   level: 1,
   xp: 0,
 };
@@ -49,6 +51,8 @@ export default function DashboardPage() {
   const [gameSettings, setGameSettings] = useState<GameSettings>(defaultGameSettings);
   const [displayStats, setDisplayStats] = useState<DisplayStats>({ totalFunds: null, phonesSold: null });
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [activeCampaign, setActiveCampaign] = useState<ActiveMarketingCampaign | null>(null);
+
 
   const performMarketSimulation = useCallback((isCatchUp = false, catchUpIntervals = 1) => {
     let totalPhonesSoldThisCycle = 0;
@@ -58,11 +62,13 @@ export default function DashboardPage() {
 
     let currentPhonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
     let currentPhones: PhoneDesign[] = currentPhonesString ? JSON.parse(currentPhonesString) : [];
-    
+
     let currentStatsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
     let currentStats: GameStats = currentStatsString ? JSON.parse(currentStatsString) : { ...defaultGameStats };
     if (currentStats.level === undefined) currentStats.level = 1;
     if (currentStats.xp === undefined) currentStats.xp = 0;
+    if (currentStats.brandReputation === undefined) currentStats.brandReputation = 0;
+
 
     const currentSettingsString = localStorage.getItem(LOCAL_STORAGE_GAME_SETTINGS_KEY);
     const currentSettings: GameSettings = currentSettingsString ? JSON.parse(currentSettingsString) : defaultGameSettings;
@@ -73,28 +79,57 @@ export default function DashboardPage() {
 
     let phonesModifiedInLoop = false;
 
+    // Handle active marketing campaign
+    let campaignString = localStorage.getItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY);
+    let currentActiveCampaign: ActiveMarketingCampaign | null = campaignString ? JSON.parse(campaignString) : null;
+    let campaignSaleChanceBonus = 0;
+    let campaignTargetPhoneId: string | undefined = undefined;
+    let campaignDetails: MarketingCampaignType | undefined = undefined;
+
+    if (currentActiveCampaign) {
+      campaignDetails = AVAILABLE_MARKETING_CAMPAIGNS.find(c => c.id === currentActiveCampaign.campaignId);
+      if (campaignDetails) {
+        campaignSaleChanceBonus = campaignDetails.saleChanceBonus;
+        if (campaignDetails.effectScope === 'single_model') {
+          campaignTargetPhoneId = currentActiveCampaign.targetPhoneModelId;
+        }
+        currentActiveCampaign.remainingDays -= catchUpIntervals; // Decrease days based on catch-up or single interval
+      }
+    }
+
     const difficultyModifier = DIFFICULTY_SALE_CHANCE_MODIFIERS[currentSettings.difficulty] || 1.0;
     const levelBasedSaleChanceBonus = (currentStats.level - 1) * 0.005; // +0.5% chance per level above 1
-    const actualMarketSaleChance = BASE_MARKET_SALE_CHANCE_PER_UNIT * difficultyModifier * (1 + levelBasedSaleChanceBonus);
 
 
     for (let i = 0; i < catchUpIntervals; i++) {
       currentPhones = currentPhones.map(phone => {
         if (phone.quantityListedForSale > 0) {
           let salesForThisPhoneInInterval = 0;
+
+          let phoneSpecificCampaignBonus = 0;
+          if (campaignDetails) {
+            if (campaignDetails.effectScope === 'all') {
+              phoneSpecificCampaignBonus = campaignSaleChanceBonus;
+            } else if (campaignDetails.effectScope === 'single_model' && phone.id === campaignTargetPhoneId) {
+              phoneSpecificCampaignBonus = campaignSaleChanceBonus;
+            }
+          }
+          const actualMarketSaleChance = (BASE_MARKET_SALE_CHANCE_PER_UNIT + phoneSpecificCampaignBonus) * difficultyModifier * (1 + levelBasedSaleChanceBonus);
+
+
           for (let unit = 0; unit < phone.quantityListedForSale; unit++) {
             if (Math.random() < actualMarketSaleChance && salesForThisPhoneInInterval < MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL) {
               salesForThisPhoneInInterval++;
             }
           }
-          
+
           if (salesForThisPhoneInInterval > 0) {
             const revenueFromThisPhone = salesForThisPhoneInInterval * (phone.salePrice || 0);
             currentStats.totalFunds += revenueFromThisPhone;
             currentStats.phonesSold += salesForThisPhoneInInterval;
-            
+
             phone.quantityListedForSale -= salesForThisPhoneInInterval;
-            
+
             totalRevenueThisCycle += revenueFromThisPhone;
             totalPhonesSoldThisCycle += salesForThisPhoneInInterval;
             xpGainedThisCycle += XP_PER_PHONE_SOLD * salesForThisPhoneInInterval;
@@ -110,7 +145,7 @@ export default function DashboardPage() {
                 }),
                 icon: <HandCoins className="w-5 h-5 text-green-500" />
             });
-            
+
             const saleTransaction: Transaction = {
               id: `txn_market_sale_${Date.now()}_${phone.id}_${salesForThisPhoneInInterval}_${i}`,
               date: new Date().toISOString(),
@@ -136,7 +171,7 @@ export default function DashboardPage() {
         currentStats.level++;
         currentStats.xp -= xpToNext;
         xpToNext = calculateXpToNextLevel(currentStats.level);
-        
+
         const moneyBonus = MONEY_BONUS_FIXED_AMOUNT + (currentStats.level * MONEY_BONUS_PER_LEVEL_BASE);
         currentStats.totalFunds += moneyBonus;
 
@@ -151,21 +186,45 @@ export default function DashboardPage() {
       }
     }
 
+     // Handle campaign completion
+    if (currentActiveCampaign && campaignDetails && currentActiveCampaign.remainingDays <= 0) {
+      currentStats.brandReputation += campaignDetails.brandReputationBonus;
+      toast({
+        title: t('campaignFinishedSuccessfully', { campaignName: t(campaignDetails.nameKey) }),
+        description: t('campaignBrandReputationBonus', { bonus: campaignDetails.brandReputationBonus }),
+      });
+      localStorage.removeItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY);
+      setActiveCampaign(null); // Update local state for UI
+      currentActiveCampaign = null; // Clear for next cycle
+      // Ensure brandReputation update is saved
+      phonesModifiedInLoop = true; // Mark as modified to save stats
+    } else if (currentActiveCampaign) {
+      localStorage.setItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY, JSON.stringify(currentActiveCampaign));
+      setActiveCampaign(currentActiveCampaign); // Update local state for UI
+    }
+
+
     if (phonesModifiedInLoop || xpGainedThisCycle > 0) {
       localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(currentPhones));
       localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(currentStats));
       localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
-      
-      setGameStats(prevStats => ({...prevStats, ...currentStats})); 
-      setDisplayStats({ 
+
+      setGameStats(prevStats => ({...prevStats, ...currentStats}));
+      setDisplayStats({
           totalFunds: `$${currentStats.totalFunds.toLocaleString(language)}`,
           phonesSold: currentStats.phonesSold.toLocaleString(language),
       });
       window.dispatchEvent(new CustomEvent('myPhonesChanged'));
       window.dispatchEvent(new CustomEvent('gameStatsChanged'));
       window.dispatchEvent(new CustomEvent('transactionsChanged'));
+      if (currentActiveCampaign === null) { // If campaign was just removed
+         window.dispatchEvent(new CustomEvent('activeCampaignChanged'));
+      }
     }
-    
+
+    checkAllAchievements(currentStats, currentPhones, toast, t, language);
+
+
     salesNotificationsForCycle.forEach(notification => {
       toast({
         title: notification.title,
@@ -175,7 +234,7 @@ export default function DashboardPage() {
     });
 
     if (!isCatchUp && totalPhonesSoldThisCycle === 0 ) {
-       if (currentPhones.length > 0 && currentPhones.every(p => p.quantityListedForSale === 0)) {
+       if (currentPhones.length > 0 && currentPhones.every(p => p.quantityListedForSale === 0) && !currentActiveCampaign) {
         toast({
             title: t('marketDaySummaryTitle'),
             description: t('marketDayNoPhonesListed'),
@@ -196,10 +255,10 @@ export default function DashboardPage() {
           const parsedStats = JSON.parse(storedStatsString) as GameStats;
           if (typeof parsedStats.totalFunds === 'number' && typeof parsedStats.phonesSold === 'number') {
               currentStats = {
-                ...defaultGameStats, 
-                ...parsedStats,     
+                ...defaultGameStats,
+                ...parsedStats,
               };
-          } else { 
+          } else {
               localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(defaultGameStats));
           }
         } catch (error) {
@@ -210,9 +269,11 @@ export default function DashboardPage() {
       } else {
         localStorage.setItem(LOCAL_STORAGE_GAME_STATS_KEY, JSON.stringify(defaultGameStats));
       }
-      
+
       if (currentStats.level === undefined) currentStats.level = 1;
       if (currentStats.xp === undefined) currentStats.xp = 0;
+      if (currentStats.brandReputation === undefined) currentStats.brandReputation = 0;
+
 
       setGameStats(currentStats);
       setDisplayStats({
@@ -227,7 +288,7 @@ export default function DashboardPage() {
         try {
             currentSettings = JSON.parse(storedSettingsString);
             if (typeof currentSettings.useOnlineFeatures !== 'boolean' || !['easy', 'normal', 'hard'].includes(currentSettings.difficulty)) {
-                currentSettings = { ...defaultGameSettings, ...currentSettings }; 
+                currentSettings = { ...defaultGameSettings, ...currentSettings };
                 localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(currentSettings));
             }
         } catch (error) {
@@ -238,17 +299,32 @@ export default function DashboardPage() {
           localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(defaultGameSettings));
       }
       setGameSettings(currentSettings);
+
+      // Load Active Campaign
+      const campaignString = localStorage.getItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY);
+      setActiveCampaign(campaignString ? JSON.parse(campaignString) : null);
+
+      // Check achievements on initial load
+      const phonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
+      const phones: PhoneDesign[] = phonesString ? JSON.parse(phonesString) : [];
+      checkAllAchievements(currentStats, phones, toast, t, language);
     };
-    
+
     loadGameData();
 
     const handleStatsUpdate = () => { loadGameData(); };
     const handleSettingsUpdate = () => { loadGameData(); };
+    const handleCampaignUpdate = () => {
+        const campaignString = localStorage.getItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY);
+        setActiveCampaign(campaignString ? JSON.parse(campaignString) : null);
+    };
+
 
     window.addEventListener('gameStatsChanged', handleStatsUpdate);
-    window.addEventListener('gameSettingsChanged', handleSettingsUpdate); 
+    window.addEventListener('gameSettingsChanged', handleSettingsUpdate);
+    window.addEventListener('activeCampaignChanged', handleCampaignUpdate);
 
-    
+
     const lastSimTime = localStorage.getItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY);
     if (lastSimTime) {
       const timeDiffMs = Date.now() - parseInt(lastSimTime, 10);
@@ -264,19 +340,20 @@ export default function DashboardPage() {
         }
       }
     } else {
-      
+
       localStorage.setItem(LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY, Date.now().toString());
     }
-    
+
     if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
     simulationIntervalRef.current = setInterval(() => {
       performMarketSimulation(false, 1);
     }, MARKET_SIMULATION_INTERVAL);
-    
+
 
     return () => {
         window.removeEventListener('gameStatsChanged', handleStatsUpdate);
         window.removeEventListener('gameSettingsChanged', handleSettingsUpdate);
+        window.removeEventListener('activeCampaignChanged', handleCampaignUpdate);
         if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
     };
 
@@ -284,10 +361,28 @@ export default function DashboardPage() {
 
 
   const brandReputationText = (rep: number) => {
-    if (rep > 5) return t('statBrandReputationValue_good');
-    if (rep < -5) return t('statBrandReputationValue_bad');
+    if (rep >= 5) return t('statBrandReputationValue_good');
+    if (rep <= -5) return t('statBrandReputationValue_bad');
     return t('statBrandReputationValue');
   }
+  
+  const getActiveCampaignInfo = () => {
+    if (!activeCampaign) return null;
+    const campaignDetails = AVAILABLE_MARKETING_CAMPAIGNS.find(c => c.id === activeCampaign.campaignId);
+    if (!campaignDetails) return null;
+
+    let targetInfo = t('activeCampaignTarget_all');
+    if (campaignDetails.effectScope === 'single_model' && activeCampaign.targetPhoneModelName) {
+      targetInfo = activeCampaign.targetPhoneModelName;
+    }
+
+    return t('activeMarketingCampaignInfo', {
+      campaignName: t(campaignDetails.nameKey),
+      remainingDays: activeCampaign.remainingDays,
+      target: targetInfo,
+    });
+  };
+
 
   return (
     <div className="space-y-8">
@@ -297,36 +392,37 @@ export default function DashboardPage() {
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard 
-            title={t('statTotalFunds')} 
-            value={displayStats.totalFunds ?? t('loadingFunds')} 
-            icon={DollarSign} 
-            description={t('statDescFunds')} 
+        <StatCard
+            title={t('statTotalFunds')}
+            value={displayStats.totalFunds ?? t('loadingFunds')}
+            icon={DollarSign}
+            description={t('statDescFunds')}
         />
-        <StatCard 
-            title={t('statPhonesSold')} 
-            value={displayStats.phonesSold ?? t('loadingSold')} 
-            icon={HandCoins} 
-            description={t('statDescPhonesSold')} 
+        <StatCard
+            title={t('statPhonesSold')}
+            value={displayStats.phonesSold ?? t('loadingSold')}
+            icon={HandCoins}
+            description={t('statDescPhonesSold')}
         />
-        <StatCard 
-            title={t('statBrandReputation')} 
-            value={brandReputationText(gameStats.brandReputation)} 
-            icon={Users} 
-            description={t('statDescBrandRep')} 
+        <StatCard
+            title={t('statBrandReputation')}
+            value={`${brandReputationText(gameStats.brandReputation)} (${gameStats.brandReputation})`}
+            icon={Users}
+            description={t('statDescBrandRep')}
         />
-        <StatCard 
-            title={t('statMarketTrend')} 
-            value={t('statMarketTrendValue')} 
-            icon={TrendingUp} 
-            description={t('statDescMarketTrend')} 
+        <StatCard
+            title={t('statMarketTrend')}
+            value={t('statMarketTrendValue')}
+            icon={TrendingUp}
+            description={t('statDescMarketTrend')}
         />
       </div>
 
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          {t('marketSimulationActive')} {t('currentDifficultyLabel')}: {t(`difficulty_${gameSettings.difficulty}`)}
+          {t('marketSimulationActive')} {t('currentDifficultyLabel')}: {t(`difficulty_${gameSettings.difficulty}`)}.
+          {getActiveCampaignInfo() && ` ${getActiveCampaignInfo()}`}
         </AlertDescription>
       </Alert>
 
@@ -346,6 +442,9 @@ export default function DashboardPage() {
             <Button asChild variant="outline" size="lg">
               <Link href="/brand">{t('btnManageBrand')}</Link>
             </Button>
+             <Button asChild variant="outline" size="lg">
+                <Link href="/marketing">{t('marketing')}</Link>
+            </Button>
             <Button asChild variant="outline" size="lg">
               <Link href="/market">{t('btnAnalyzeMarket')}</Link>
             </Button>
@@ -357,17 +456,17 @@ export default function DashboardPage() {
             </Button>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader>
             <CardTitle>{t('nextBigIdeaTitle')}</CardTitle>
              <CardDescription>{t('nextBigIdeaDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Image 
-              src="https://placehold.co/600x400.png" 
+            <Image
+              src="https://placehold.co/600x400.png"
               alt={t('phoneBlueprintAlt')}
-              width={600} 
+              width={600}
               height={400}
               className="rounded-lg object-cover aspect-video"
               data-ai-hint="phone blueprint"

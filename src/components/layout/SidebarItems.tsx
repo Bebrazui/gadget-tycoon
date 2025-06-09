@@ -20,9 +20,10 @@ import {
   Github,
   ListChecks,
   Briefcase,
-  FlaskConical, 
+  FlaskConical,
   Settings,
-  MessageSquareText, // Added for Reviews
+  MessageSquareText,
+  Volume2, // Added for Marketing
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -41,9 +42,10 @@ export function SidebarItems() {
       { href: '/procurement', labelKey: 'clientContracts', icon: Briefcase },
       { href: '/rd', labelKey: 'rd', icon: FlaskConical },
       { href: '/brand', labelKey: 'brand', icon: Award },
+      { href: '/marketing', labelKey: 'marketing', icon: Volume2 }, // Added Marketing
       { href: '/market', labelKey: 'marketAnalysis', icon: LineChart },
       { href: '/financials', labelKey: 'financials', icon: Banknote },
-      { href: '/reviews', labelKey: 'customerReviews', icon: MessageSquareText }, // Added Reviews
+      { href: '/reviews', labelKey: 'customerReviews', icon: MessageSquareText },
       { href: '/trends', labelKey: 'trendForecasting', icon: Brain },
       { href: '/settings', labelKey: 'settings', icon: Settings },
     ];

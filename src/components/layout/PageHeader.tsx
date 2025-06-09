@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { LogOut, Languages } from 'lucide-react';
+import { LogOut, Languages, Volume2 } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Language } from '@/context/LanguageContext';
@@ -25,6 +25,7 @@ const navItemTitleKeys: Record<string, string> = {
   '/rd': 'pageTitleRD',
   '/settings': 'pageTitleSettings',
   '/reviews': 'pageTitleReviews',
+  '/marketing': 'pageTitleMarketing', // Added marketing page title
 };
 
 const defaultInitialHeaderStats: Pick<GameStats, 'level' | 'xp'> = {
@@ -35,7 +36,7 @@ const defaultInitialHeaderStats: Pick<GameStats, 'level' | 'xp'> = {
 export function PageHeader() {
   const pathname = usePathname();
   const { t, language, setLanguage } = useTranslation();
-  
+
   const titleKey = navItemTitleKeys[pathname] || 'pageTitleDashboard';
   const title = t(titleKey);
 
@@ -68,7 +69,7 @@ export function PageHeader() {
 
   useEffect(() => {
     loadStats(); // Initial load
-    
+
     const handleGameStatsChanged = () => {
       loadStats();
     };
