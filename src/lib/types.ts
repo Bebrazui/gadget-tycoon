@@ -56,11 +56,11 @@ export const PROCESSOR_TIERS: ComponentTier[] = [
     nameKey: 'processorTier1Name',
     descriptionKey: 'processorTier1Desc',
     type: 'processor',
-    researchCost: 7500, // Increased cost
+    researchCost: 7500,
     requiredPlayerLevel: 1,
-    xpReward: 150, // Increased XP reward
+    xpReward: 150,
     characteristics: {
-      maxAntutuScore: 700000, // Slightly increased max
+      maxAntutuScore: 700000,
       minCoreCount: 4,
       maxCoreCount: 8,
       minClockSpeed: 1.8,
@@ -74,11 +74,11 @@ export const PROCESSOR_TIERS: ComponentTier[] = [
     nameKey: 'processorTier2Name',
     descriptionKey: 'processorTier2Desc',
     type: 'processor',
-    researchCost: 25000, // Increased cost
-    requiredPlayerLevel: 3, // Adjusted level
-    xpReward: 300, // Increased XP reward
+    researchCost: 25000,
+    requiredPlayerLevel: 3,
+    xpReward: 300,
     characteristics: {
-      maxAntutuScore: 1300000, // Slightly increased max
+      maxAntutuScore: 1300000,
       minCoreCount: 6,
       maxCoreCount: 10,
       minClockSpeed: 2.2,
@@ -95,9 +95,9 @@ export const DISPLAY_TIERS: ComponentTier[] = [
     nameKey: 'displayTier1Name',
     descriptionKey: 'displayTier1Desc',
     type: 'display',
-    researchCost: 4500, // Increased cost
+    researchCost: 4500,
     requiredPlayerLevel: 1,
-    xpReward: 120, // Increased XP reward
+    xpReward: 120,
     characteristics: {
       allowedTechnologies: ['lcd'],
       allowedResolutionCategories: ['hd', 'fhd'],
@@ -111,9 +111,9 @@ export const DISPLAY_TIERS: ComponentTier[] = [
     nameKey: 'displayTier2Name',
     descriptionKey: 'displayTier2Desc',
     type: 'display',
-    researchCost: 20000, // Increased cost
-    requiredPlayerLevel: 2, // Adjusted level
-    xpReward: 250, // Increased XP reward
+    researchCost: 20000,
+    requiredPlayerLevel: 2,
+    xpReward: 250,
     characteristics: {
       allowedTechnologies: ['lcd', 'oled'],
       allowedResolutionCategories: ['hd', 'fhd', 'qhd'],
@@ -159,6 +159,8 @@ export interface PhoneComponent {
   costPerUnit?: number; // For RAM, Storage, Battery capacity
   baseCost?: number; // For boolean features like NFC, OIS
 }
+
+export type ComponentCategory = 'processor' | 'display' | 'ram' | 'storage' | 'camera' | 'battery' | 'material';
 
 export interface PhoneDesign {
   id:string; // Unique identifier for the phone
@@ -338,6 +340,27 @@ export interface ActiveMarketingCampaign {
   targetPhoneModelName?: string;
   remainingDays: number;
   startDate: string;
+}
+
+export type GameEventType = 'component_cost_modifier' | 'feature_sale_chance_modifier' | 'global_sale_chance_modifier';
+
+export interface GameEventDefinition {
+    id: string;
+    type: GameEventType;
+    titleKey: string;
+    descriptionKey: string;
+    durationDays: number; // How many market simulation cycles it lasts
+    effectValue: number; // e.g., 1.15 for 15% cost increase, 0.05 for 5% sale chance increase, -0.02 for 2% sale chance decrease
+    componentCategory?: ComponentCategory; // For 'component_cost_modifier'
+    targetFeature?: keyof PhoneDesign; // For 'feature_sale_chance_modifier', e.g., 'nfcSupport' or 'screenSize'
+    targetFeatureValue?: any; // Value for targetFeature, e.g., true for nfcSupport, or a number for screenSize > X
+    isNegative?: boolean; // To style notifications differently (e.g. red for bad events)
+}
+
+export interface ActiveGameEvent {
+    eventId: string;
+    remainingDays: number;
+    definition: GameEventDefinition; // Store the full definition for easy access to its properties
 }
 
 
@@ -619,6 +642,40 @@ export const AVAILABLE_MARKETING_CAMPAIGNS: MarketingCampaignType[] = [
   },
 ];
 
+export const AVAILABLE_GAME_EVENTS: GameEventDefinition[] = [
+    {
+        id: 'evt_chip_shortage', type: 'component_cost_modifier',
+        titleKey: 'gameEvent_chipShortage_title', descriptionKey: 'gameEvent_chipShortage_desc',
+        durationDays: 5, effectValue: 1.15, componentCategory: 'processor', isNegative: true
+    },
+    {
+        id: 'evt_ram_surplus', type: 'component_cost_modifier',
+        titleKey: 'gameEvent_ramSurplus_title', descriptionKey: 'gameEvent_ramSurplus_desc',
+        durationDays: 7, effectValue: 0.85, componentCategory: 'ram'
+    },
+    {
+        id: 'evt_nfc_hype', type: 'feature_sale_chance_modifier',
+        titleKey: 'gameEvent_nfcHype_title', descriptionKey: 'gameEvent_nfcHype_desc',
+        durationDays: 7, effectValue: 0.03, targetFeature: 'nfcSupport', targetFeatureValue: true
+    },
+    {
+        id: 'evt_large_screen_demand', type: 'feature_sale_chance_modifier',
+        titleKey: 'gameEvent_largeScreenDemand_title', descriptionKey: 'gameEvent_largeScreenDemand_desc',
+        durationDays: 10, effectValue: 0.025, targetFeature: 'screenSize', targetFeatureValue: 6.5 // Implies 'greater than or equal to'
+    },
+    {
+        id: 'evt_economic_boom', type: 'global_sale_chance_modifier',
+        titleKey: 'gameEvent_economicBoom_title', descriptionKey: 'gameEvent_economicBoom_desc',
+        durationDays: 10, effectValue: 0.015
+    },
+    {
+        id: 'evt_economic_recession', type: 'global_sale_chance_modifier',
+        titleKey: 'gameEvent_economicRecession_title', descriptionKey: 'gameEvent_economicRecession_desc',
+        durationDays: 12, effectValue: -0.01, isNegative: true
+    },
+];
+
+
 export const LOCAL_STORAGE_GAME_STATS_KEY = 'gadgetTycoon_gameStats';
 export const LOCAL_STORAGE_TRANSACTIONS_KEY = 'gadgetTycoon_transactions';
 export const LOCAL_STORAGE_MY_PHONES_KEY = 'myPhones';
@@ -633,15 +690,16 @@ export const LOCAL_STORAGE_RESEARCHED_DISPLAY_TIERS_KEY = 'gadgetTycoon_research
 export const LOCAL_STORAGE_GAME_SETTINGS_KEY = 'gadgetTycoon_gameSettings';
 export const LOCAL_STORAGE_ACHIEVEMENTS_KEY = 'gadgetTycoon_achievements';
 export const LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY = 'gadgetTycoon_activeCampaign';
+export const LOCAL_STORAGE_ACTIVE_EVENTS_KEY = 'gadgetTycoon_activeEvents';
 
 
 export const SALE_MARKUP_FACTOR = 1.5;
-export const INITIAL_FUNDS = 25000; // Increased for campaign testing
-export const BASE_DESIGN_ASSEMBLY_COST = 30; // Slightly increased
+export const INITIAL_FUNDS = 25000;
+export const BASE_DESIGN_ASSEMBLY_COST = 30;
 
 // Market Simulation Parameters
 export const BASE_MARKET_SALE_CHANCE_PER_UNIT = 0.02;
-export const MARKET_SIMULATION_INTERVAL = 15000; // Faster market simulation
+export const MARKET_SIMULATION_INTERVAL = 15000;
 export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 7;
 export const MARKET_CATCH_UP_THRESHOLD_MINUTES = 5;
 export const MARKET_MAX_CATCH_UP_INTERVALS = 20;
@@ -653,12 +711,14 @@ export const DIFFICULTY_SALE_CHANCE_MODIFIERS: Record<GameDifficulty, number> = 
 };
 
 export const MAX_AVAILABLE_CONTRACTS = 3;
+export const MAX_ACTIVE_GAME_EVENTS = 2;
+export const GAME_EVENT_PROBABILITY_PER_SIMULATION = 0.10; // 10% chance per market cycle to trigger a new event
 
 // Leveling System
 export const XP_FOR_DESIGNING_PHONE = 50;
 export const XP_PER_PHONE_SOLD = 15;
-export const XP_FOR_RESEARCHING_COMPONENT = 75; // For custom components
-export const XP_FOR_RESEARCHING_TIER = 100; // For researching a technology tier
+export const XP_FOR_RESEARCHING_COMPONENT = 75;
+export const XP_FOR_RESEARCHING_TIER = 100;
 export const XP_FOR_STARTING_MARKETING_CAMPAIGN = 20;
 
 
@@ -667,4 +727,4 @@ export function calculateXpToNextLevel(level: number): number {
 }
 
 export const MONEY_BONUS_PER_LEVEL_BASE = 250;
-export const MONEY_BONUS_FIXED_AMOUNT = 1500; // Increased
+export const MONEY_BONUS_FIXED_AMOUNT = 1500;

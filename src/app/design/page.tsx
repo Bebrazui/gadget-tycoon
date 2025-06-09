@@ -35,7 +35,8 @@ import {
   LOCAL_STORAGE_MY_PHONES_KEY, LOCAL_STORAGE_GAME_STATS_KEY, LOCAL_STORAGE_TRANSACTIONS_KEY,
   INITIAL_FUNDS, BASE_DESIGN_ASSEMBLY_COST, SALE_MARKUP_FACTOR,
   XP_FOR_DESIGNING_PHONE, calculateXpToNextLevel, LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY, LOCAL_STORAGE_CUSTOM_DISPLAYS_KEY,
-  MONEY_BONUS_PER_LEVEL_BASE, MONEY_BONUS_FIXED_AMOUNT, GeneratePhoneReviewOutputSchema
+  MONEY_BONUS_PER_LEVEL_BASE, MONEY_BONUS_FIXED_AMOUNT, GeneratePhoneReviewOutputSchema,
+  LOCAL_STORAGE_ACTIVE_EVENTS_KEY, type ActiveGameEvent, type ComponentCategory
 } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/hooks/useTranslation';
@@ -187,6 +188,7 @@ export default function DesignPhonePage() {
   const [reviewState, setReviewState] = useState<GenerateReviewFormState | null>(null);
   const [customProcessors, setCustomProcessors] = useState<CustomProcessor[]>([]);
   const [customDisplays, setCustomDisplays] = useState<CustomDisplay[]>([]);
+  const [activeGameEvents, setActiveGameEvents] = useState<ActiveGameEvent[]>([]);
 
   const defaultValues: PhoneDesignFormData = useMemo(() => ({ 
     name: '',
@@ -224,7 +226,7 @@ export default function DesignPhonePage() {
 
   const watchedValues = watch();
 
-  const loadCustomComponents = useCallback(() => {
+  const loadCustomComponentsAndEvents = useCallback(() => {
     const storedProcs = localStorage.getItem(LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY);
     if (storedProcs) try { 
         const parsed = JSON.parse(storedProcs) as CustomProcessor[];
@@ -242,19 +244,25 @@ export default function DesignPhonePage() {
         const allDisplayOpts = [...(DISPLAY_OPTIONS.options || []), ...parsed.map(cd => ({ value: cd.id, label: cd.name, cost: cd.manufacturingCost }))];
         if (!allDisplayOpts.find(opt => opt.value === currentDisplayValue) && allDisplayOpts.length > 0) setValue("displayType", allDisplayOpts[0].value);
     } catch (e) { console.error(t('localStorageErrorCustomDisplaysConsole'), e); setCustomDisplays([]); }
+
+    const eventsString = localStorage.getItem(LOCAL_STORAGE_ACTIVE_EVENTS_KEY);
+    setActiveGameEvents(eventsString ? JSON.parse(eventsString) : []);
+
   }, [t, getValues, setValue]);
 
 
   useEffect(() => {
-    loadCustomComponents();
-    const handleCustomComponentsChanged = () => loadCustomComponents();
+    loadCustomComponentsAndEvents();
+    const handleCustomComponentsChanged = () => loadCustomComponentsAndEvents();
     window.addEventListener('customProcessorsChanged', handleCustomComponentsChanged);
     window.addEventListener('customDisplaysChanged', handleCustomComponentsChanged);
+    window.addEventListener('activeEventsChanged', handleCustomComponentsChanged); // Listen for event changes
     return () => {
         window.removeEventListener('customProcessorsChanged', handleCustomComponentsChanged);
         window.removeEventListener('customDisplaysChanged', handleCustomComponentsChanged);
+        window.removeEventListener('activeEventsChanged', handleCustomComponentsChanged);
     };
-  }, [loadCustomComponents]);
+  }, [loadCustomComponentsAndEvents]);
 
 
   const allProcessorOptions = useMemo(() => {
@@ -284,32 +292,67 @@ export default function DesignPhonePage() {
   }, [customDisplays, t]);
 
 
-  const getOptionCost = useCallback((value: string, componentType: 'processor' | 'display'): number => {
+  const getOptionCost = useCallback((value: string, componentType: ComponentCategory): number => {
+    let baseCost = 0;
     if (componentType === 'processor') {
         const selectedProc = allProcessorOptions.find(opt => opt.value === value);
-        return selectedProc?.cost || 0;
-    }
-    if (componentType === 'display') {
+        baseCost = selectedProc?.cost || 0;
+    } else if (componentType === 'display') {
         const selectedDisplay = allDisplayOptions.find(opt => opt.value === value);
-        return selectedDisplay?.cost || 0;
+        baseCost = selectedDisplay?.cost || 0;
+    } else if (componentType === 'material') {
+        baseCost = MATERIAL_OPTIONS.options?.find(opt => opt.value === value)?.cost || 0;
     }
-    
-    const optionsArray = 
-        componentType === 'processor' ? PROCESSOR_OPTIONS.options : 
-        componentType === 'display' ? DISPLAY_OPTIONS.options : 
-        []; 
-    return optionsArray?.find(opt => opt.value === value)?.cost || 0;
-  }, [allProcessorOptions, allDisplayOptions]);
+    // For other simple components, baseCost might be 0 or a fixed value if not covered above
+
+    // Apply event modifiers
+    activeGameEvents.forEach(event => {
+        if (event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === componentType) {
+            baseCost *= event.definition.effectValue;
+        }
+    });
+    return baseCost;
+  }, [allProcessorOptions, allDisplayOptions, activeGameEvents]);
 
   const calculateCosts = useCallback(() => {
     let unitCost = 0;
     unitCost += getOptionCost(watchedValues.processor, 'processor');
     unitCost += getOptionCost(watchedValues.displayType, 'display');
-    unitCost += MATERIAL_OPTIONS.options?.find(opt => opt.value === watchedValues.material)?.cost || 0;
-    unitCost += watchedValues.ram * RAM_COST_PER_GB;
-    unitCost += watchedValues.storage * STORAGE_COST_PER_GB;
-    unitCost += watchedValues.cameraResolution * CAMERA_COST_PER_MP;
-    unitCost += (watchedValues.batteryCapacity / 100) * BATTERY_COST_PER_100MAH;
+    unitCost += getOptionCost(watchedValues.material, 'material');
+    
+    let ramCost = watchedValues.ram * RAM_COST_PER_GB;
+    activeGameEvents.forEach(event => {
+        if (event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'ram') {
+            ramCost *= event.definition.effectValue;
+        }
+    });
+    unitCost += ramCost;
+
+    let storageCost = watchedValues.storage * STORAGE_COST_PER_GB;
+     activeGameEvents.forEach(event => {
+        if (event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'storage') {
+            storageCost *= event.definition.effectValue;
+        }
+    });
+    unitCost += storageCost;
+
+    let mainCameraCost = watchedValues.cameraResolution * CAMERA_COST_PER_MP;
+    activeGameEvents.forEach(event => {
+        if (event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'camera') {
+            mainCameraCost *= event.definition.effectValue; // Assuming general camera cost event
+        }
+    });
+    unitCost += mainCameraCost;
+    
+    let batteryCost = (watchedValues.batteryCapacity / 100) * BATTERY_COST_PER_100MAH;
+    activeGameEvents.forEach(event => {
+        if (event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'battery') {
+            batteryCost *= event.definition.effectValue;
+        }
+    });
+    unitCost += batteryCost;
+
+    // Other costs - assuming no specific event modifiers for them yet, but could be added
     unitCost += (watchedValues.screenSize - 5.0) * SCREEN_SIZE_COST_FACTOR;
     unitCost += REFRESH_RATE_OPTIONS.options?.find(opt => opt.value === watchedValues.refreshRate)?.cost || 0;
     unitCost += WATER_RESISTANCE_OPTIONS.options?.find(opt => opt.value === watchedValues.waterResistance)?.cost || 0;
@@ -329,7 +372,7 @@ export default function DesignPhonePage() {
     const prodQty = typeof watchedValues.productionQuantity === 'number' ? watchedValues.productionQuantity : 0;
     setTotalProductionCost(parseFloat((unitCost * prodQty).toFixed(2)));
 
-  }, [watchedValues, getOptionCost]);
+  }, [watchedValues, getOptionCost, activeGameEvents]);
 
   useEffect(() => {
     calculateCosts();
@@ -339,8 +382,11 @@ export default function DesignPhonePage() {
     setIsSubmitting(true);
     setReviewState(null);
 
-    const currentUnitCost = parseFloat(unitManufacturingCost.toFixed(2));
-    const currentTotalCost = parseFloat(totalProductionCost.toFixed(2));
+    // Recalculate costs one last time before submission to ensure event effects are current
+    calculateCosts(); 
+    const currentUnitCost = unitManufacturingCost; // Use the state updated by calculateCosts
+    const currentTotalCost = currentUnitCost * data.productionQuantity;
+
 
     const statsString = localStorage.getItem(LOCAL_STORAGE_GAME_STATS_KEY);
     let currentStats: GameStats = statsString
@@ -416,7 +462,7 @@ export default function DesignPhonePage() {
       imageUrl: `https://placehold.co/300x200.png?text=${encodeURIComponent(data.name)}`,
       salePrice: parseFloat((currentUnitCost * SALE_MARKUP_FACTOR).toFixed(2)),
       quantityListedForSale: 0,
-      review: undefined, // Initialize review as undefined
+      review: undefined, 
       reviewType: undefined,
     };
 
@@ -434,7 +480,6 @@ export default function DesignPhonePage() {
         }),
       });
 
-      // Review Generation Logic (AI or Local with 18% chance for detailed)
       let processorNameForReview = data.processor;
       const selectedProcOption = allProcessorOptions.find(opt => opt.value === data.processor);
       processorNameForReview = selectedProcOption ? selectedProcOption.label : data.processor;
@@ -451,7 +496,7 @@ export default function DesignPhonePage() {
       };
       
       const reviewChance = Math.random();
-      if (reviewChance < 0.18) { // ~18% chance for a detailed review
+      if (reviewChance < 0.18) { 
         if (settings.useOnlineFeatures) {
             setIsGeneratingReview(true);
             const reviewResult = await getPhoneDesignReview(reviewInputData);
@@ -459,7 +504,7 @@ export default function DesignPhonePage() {
             setIsGeneratingReview(false);
 
             if (reviewResult.review && !reviewResult.error) {
-              phoneToSave.review = reviewResult.review.reviewText; // Store only text part of AI review or full for local
+              phoneToSave.review = reviewResult.review.reviewText; 
               (phoneToSave as any).reviewType = 'ai';
               toast({
                 title: t('aiReviewGeneratedTitle'),
@@ -473,7 +518,6 @@ export default function DesignPhonePage() {
               });
             }
         } else {
-            // Generate Detailed Local Review
             const localReview = generateLocalPhoneReview(reviewInputData, t);
             setReviewState({
               message: t("localReviewGeneratedTitle"),
@@ -488,14 +532,12 @@ export default function DesignPhonePage() {
              });
         }
       } else {
-        // ~82% chance for a very short generic review or no review
         const shortReviewTemplates = [
             t('local_review_very_short_generic', {phoneName: data.name}),
-            // Add more very short positive/neutral templates here if needed
         ];
         phoneToSave.review = shortReviewTemplates[Math.floor(Math.random() * shortReviewTemplates.length)];
-        (phoneToSave as any).reviewType = 'local_short'; // Differentiate if needed
-        setReviewState({ // Update UI to show this short review
+        (phoneToSave as any).reviewType = 'local_short'; 
+        setReviewState({ 
             message: t("localReviewGeneratedTitle"),
             review: { reviewText: phoneToSave.review!, pros: [], cons: [], overallSentiment: "Neutral" },
             error: false

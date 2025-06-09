@@ -11,6 +11,8 @@ import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { GameDifficulty } from '@/lib/types';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { BookOpen } from 'lucide-react';
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -33,6 +35,27 @@ export default function SettingsPage() {
         description: `${t('gameDifficultyLabel')}: ${t(`difficulty_${newDifficulty}`)}`,
     });
   };
+
+  const howToPlaySections = [
+    { titleKey: 'howToPlay_introduction_title', contentKeys: ['howToPlay_introduction_p1'] },
+    { titleKey: 'howToPlay_coreLoop_title', contentKeys: ['howToPlay_coreLoop_p1', 'howToPlay_coreLoop_p2', 'howToPlay_coreLoop_p3', 'howToPlay_coreLoop_p4', 'howToPlay_coreLoop_p5', 'howToPlay_coreLoop_p6', 'howToPlay_coreLoop_p7'] },
+    { titleKey: 'howToPlay_dashboard_title', contentKeys: ['howToPlay_dashboard_p1'] },
+    { titleKey: 'howToPlay_design_title', contentKeys: ['howToPlay_design_p1', 'howToPlay_design_p2', 'howToPlay_design_p3', 'howToPlay_design_p4', 'howToPlay_design_p5', 'howToPlay_design_p6', 'howToPlay_design_p7'] },
+    { titleKey: 'howToPlay_myPhones_title', contentKeys: ['howToPlay_myPhones_p1', 'howToPlay_myPhones_p2', 'howToPlay_myPhones_p3', 'howToPlay_myPhones_p4', 'howToPlay_myPhones_p5', 'howToPlay_myPhones_p6'] },
+    { titleKey: 'howToPlay_brand_title', contentKeys: ['howToPlay_brand_p1', 'howToPlay_brand_p2', 'howToPlay_brand_p3', 'howToPlay_brand_p4', 'howToPlay_brand_p5'] },
+    { titleKey: 'howToPlay_marketing_title', contentKeys: ['howToPlay_marketing_p1', 'howToPlay_marketing_p2', 'howToPlay_marketing_p3', 'howToPlay_marketing_p4', 'howToPlay_marketing_p5'] },
+    { titleKey: 'howToPlay_marketAnalysis_title', contentKeys: ['howToPlay_marketAnalysis_p1', 'howToPlay_marketAnalysis_p2', 'howToPlay_marketAnalysis_p3', 'howToPlay_marketAnalysis_p4', 'howToPlay_marketAnalysis_p5'] },
+    { titleKey: 'howToPlay_rd_title', contentKeys: ['howToPlay_rd_p1', 'howToPlay_rd_p2', 'howToPlay_rd_p3'] },
+    { titleKey: 'howToPlay_contracts_title', contentKeys: ['howToPlay_contracts_p1', 'howToPlay_contracts_p2', 'howToPlay_contracts_p3', 'howToPlay_contracts_p4', 'howToPlay_contracts_p5', 'howToPlay_contracts_p6', 'howToPlay_contracts_p7', 'howToPlay_contracts_p8'] },
+    { titleKey: 'howToPlay_financials_title', contentKeys: ['howToPlay_financials_p1'] },
+    { titleKey: 'howToPlay_trends_title', contentKeys: ['howToPlay_trends_p1'] },
+    { titleKey: 'howToPlay_reviews_title', contentKeys: ['howToPlay_reviews_p1'] },
+    { titleKey: 'howToPlay_settings_title', contentKeys: ['howToPlay_settings_p1'] },
+    { titleKey: 'howToPlay_leveling_title', contentKeys: ['howToPlay_leveling_p1', 'howToPlay_leveling_p2'] },
+    { titleKey: 'howToPlay_gameEvents_title', contentKeys: ['howToPlay_gameEvents_p1', 'howToPlay_gameEvents_p2', 'howToPlay_gameEvents_p3', 'howToPlay_gameEvents_p4', 'howToPlay_gameEvents_p5', 'howToPlay_gameEvents_p6'] },
+    { titleKey: 'howToPlay_tips_title', contentKeys: ['howToPlay_tips_p1', 'howToPlay_tips_p2', 'howToPlay_tips_p3', 'howToPlay_tips_p4', 'howToPlay_tips_p5', 'howToPlay_tips_p6', 'howToPlay_tips_p7'] },
+  ];
+
 
   return (
     <div className="space-y-8">
@@ -79,6 +102,33 @@ export default function SettingsPage() {
           </Select>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <BookOpen className="mr-2 h-5 w-5 text-primary" />
+            {t('howToPlayTitle')}
+          </CardTitle>
+          <CardDescription>{t('howToPlay_introduction_p1')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[500px] w-full rounded-md border p-4">
+            <div className="space-y-6">
+              {howToPlaySections.map((section, index) => (
+                <div key={index}>
+                  <h4 className="text-lg font-semibold mb-2">{t(section.titleKey)}</h4>
+                  {section.contentKeys.map((contentKey, pIndex) => (
+                    <p key={pIndex} className="text-sm text-muted-foreground mb-2 leading-relaxed">
+                      {t(contentKey)}
+                    </p>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
     </div>
   );
 }
