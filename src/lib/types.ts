@@ -20,26 +20,133 @@ export interface PhoneComponentOption {
   refreshRateValue?: number;
 }
 
+// --- Component Tier System ---
+export interface ProcessorTierCharacteristics {
+  maxAntutuScore: number;
+  minCoreCount: number;
+  maxCoreCount: number;
+  minClockSpeed: number; // GHz
+  maxClockSpeed: number; // GHz
+  manufacturingCostMultiplier: number;
+  baseManufacturingCostAddition: number;
+}
+
+export interface DisplayTierCharacteristics {
+  allowedTechnologies: string[]; // e.g., ['lcd'], ['lcd', 'oled'], ['oled', 'ltpo_oled']
+  allowedResolutionCategories: string[]; // e.g., ['hd'], ['hd', 'fhd'], ['fhd', 'qhd']
+  maxRefreshRate: number; // e.g., 90, 120, 144
+  manufacturingCostMultiplier: number;
+  baseManufacturingCostAddition: number;
+}
+
+export interface ComponentTier {
+  id: string;
+  nameKey: string;
+  descriptionKey: string;
+  type: 'processor' | 'display';
+  researchCost: number;
+  requiredPlayerLevel?: number;
+  xpReward: number; // XP for researching this tier
+  characteristics: ProcessorTierCharacteristics | DisplayTierCharacteristics;
+}
+
+export const PROCESSOR_TIERS: ComponentTier[] = [
+  {
+    id: 'proc_tier_1',
+    nameKey: 'processorTier1Name',
+    descriptionKey: 'processorTier1Desc',
+    type: 'processor',
+    researchCost: 7500, // Increased cost
+    requiredPlayerLevel: 1,
+    xpReward: 150, // Increased XP reward
+    characteristics: {
+      maxAntutuScore: 700000, // Slightly increased max
+      minCoreCount: 4,
+      maxCoreCount: 8,
+      minClockSpeed: 1.8,
+      maxClockSpeed: 2.6,
+      manufacturingCostMultiplier: 1.0,
+      baseManufacturingCostAddition: 0,
+    } as ProcessorTierCharacteristics,
+  },
+  {
+    id: 'proc_tier_2',
+    nameKey: 'processorTier2Name',
+    descriptionKey: 'processorTier2Desc',
+    type: 'processor',
+    researchCost: 25000, // Increased cost
+    requiredPlayerLevel: 3, // Adjusted level
+    xpReward: 300, // Increased XP reward
+    characteristics: {
+      maxAntutuScore: 1300000, // Slightly increased max
+      minCoreCount: 6,
+      maxCoreCount: 10,
+      minClockSpeed: 2.2,
+      maxClockSpeed: 3.2,
+      manufacturingCostMultiplier: 1.05,
+      baseManufacturingCostAddition: 10,
+    } as ProcessorTierCharacteristics,
+  },
+];
+
+export const DISPLAY_TIERS: ComponentTier[] = [
+  {
+    id: 'disp_tier_1',
+    nameKey: 'displayTier1Name',
+    descriptionKey: 'displayTier1Desc',
+    type: 'display',
+    researchCost: 4500, // Increased cost
+    requiredPlayerLevel: 1,
+    xpReward: 120, // Increased XP reward
+    characteristics: {
+      allowedTechnologies: ['lcd'],
+      allowedResolutionCategories: ['hd', 'fhd'],
+      maxRefreshRate: 90,
+      manufacturingCostMultiplier: 1.0,
+      baseManufacturingCostAddition: 0,
+    } as DisplayTierCharacteristics,
+  },
+  {
+    id: 'disp_tier_2',
+    nameKey: 'displayTier2Name',
+    descriptionKey: 'displayTier2Desc',
+    type: 'display',
+    researchCost: 20000, // Increased cost
+    requiredPlayerLevel: 2, // Adjusted level
+    xpReward: 250, // Increased XP reward
+    characteristics: {
+      allowedTechnologies: ['lcd', 'oled'],
+      allowedResolutionCategories: ['hd', 'fhd', 'qhd'],
+      maxRefreshRate: 120,
+      manufacturingCostMultiplier: 1.05,
+      baseManufacturingCostAddition: 8,
+    } as DisplayTierCharacteristics,
+  },
+];
+// --- End Component Tier System ---
+
 export interface CustomProcessor {
   id: string;
   name: string;
   antutuScore: number;
   coreCount: number;
   clockSpeed: number; // in GHz
-  manufacturingCost: number; // Cost to use this processor in a phone, calculated algorithmically
-  researchCost: number; // One-time cost to unlock/develop, calculated algorithmically
-  type: 'custom_processor'; // To distinguish from predefined ones
+  manufacturingCost: number;
+  researchCost: number;
+  type: 'custom_processor';
+  tierId?: string; // Link to the researched tier
 }
 
 export interface CustomDisplay {
   id: string;
   name: string;
-  resolutionCategory: string; // e.g., 'fhd', 'qhd'
-  technology: string; // e.g., 'oled', 'ltpo_oled'
-  refreshRate: number; // e.g., 90, 120
-  manufacturingCost: number; // Estimated by AI or algorithm
-  researchCost: number; // Estimated by AI or algorithm
+  resolutionCategory: string;
+  technology: string;
+  refreshRate: number;
+  manufacturingCost: number;
+  researchCost: number;
   type: 'custom_display';
+  tierId?: string; // Link to the researched tier
 }
 
 
@@ -164,7 +271,6 @@ export interface Achievement {
   descriptionKey: string;
   condition: (stats: GameStats, phones: PhoneDesign[], other?: any) => boolean; // other can be used for specific data like researched components or contracts
   xpReward: number;
-  // brandReputationReward?: number; // Optional, can be added later
 }
 
 export type AchievementId =
@@ -173,7 +279,6 @@ export type AchievementId =
   | 'innovatorCPU'
   | 'prolificDesigner'
   | 'firstSale';
-  // Add more achievement IDs here
 
 export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
   {
@@ -201,8 +306,8 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
     id: 'innovatorCPU',
     titleKey: 'achievement_innovatorCPU_title',
     descriptionKey: 'achievement_innovatorCPU_desc',
-    condition: (stats, phones, other) => {
-        const customProcessors = JSON.parse(localStorage.getItem(LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY) || '[]') as CustomProcessor[];
+    condition: () => { // Removed direct localStorage access from condition
+        const customProcessors = typeof window !== "undefined" ? JSON.parse(localStorage.getItem(LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY) || '[]') as CustomProcessor[] : [];
         return customProcessors.length > 0;
     },
     xpReward: 75,
@@ -222,24 +327,23 @@ export interface MarketingCampaignType {
   nameKey: string;
   descriptionKey: string;
   cost: number;
-  durationDays: number; // In "market simulation days"
-  effectScope: 'all' | 'single_model'; // Does it affect all player phones or a specific model?
-  saleChanceBonus: number; // e.g., 0.05 for +5% chance per unit
-  brandReputationBonus: number; // Points added to brand reputation on completion
+  durationDays: number;
+  effectScope: 'all' | 'single_model';
+  saleChanceBonus: number;
+  brandReputationBonus: number;
 }
 
 export interface ActiveMarketingCampaign {
   campaignId: string;
-  targetPhoneModelId?: string; // If effectScope is 'single_model'
-  targetPhoneModelName?: string; // For display purposes
+  targetPhoneModelId?: string;
+  targetPhoneModelName?: string;
   remainingDays: number;
-  startDate: string; // ISO date string
+  startDate: string;
 }
 
 
 // --- Genkit Flow Schemas and Types ---
 
-// For estimate-display-costs-flow.ts (Now mostly for reference if AI is re-enabled for displays)
 export const EstimateDisplayCostsInputSchema = z.object({
   resolutionCategory: z.enum(['hd', 'fhd', 'qhd']).describe("The resolution category of the display (e.g., 'hd', 'fhd', 'qhd')."),
   technology: z.enum(['lcd', 'oled', 'ltpo_oled']).describe("The display panel technology (e.g., 'lcd', 'oled', 'ltpo_oled')."),
@@ -253,7 +357,6 @@ export const EstimateDisplayCostsOutputSchema = z.object({
 });
 export type EstimateDisplayCostsOutput = z.infer<typeof EstimateDisplayCostsOutputSchema>;
 
-// For generate-brand-slogan-flow.ts
 export const GenerateBrandSlogansInputSchema = z.object({
   brandName: z.string().describe('The name of the brand.'),
   logoDescription: z.string().describe('A description of the brand\'s logo or visual identity concept.'),
@@ -266,14 +369,12 @@ export const GenerateBrandSlogansOutputSchema = z.object({
 });
 export type GenerateBrandSlogansOutput = z.infer<typeof GenerateBrandSlogansOutputSchema>;
 
-// For generate-contract-flow.ts
 export const GenerateClientContractInputSchema = z.object({
   playerReputation: z.number().optional().describe("Optional player's brand reputation score (-10 to 10), to potentially influence contract difficulty/reward."),
   playerLevel: z.number().optional().describe("Optional player's level, to potentially influence contract complexity or rewards."),
 });
 export type GenerateClientContractInput = z.infer<typeof GenerateClientContractInputSchema>;
 
-// Zod schema for RequiredSpecs (used by ClientContractSchema)
 export const RequiredSpecsSchema = z.object({
   minRam: z.number().optional().describe("Minimum RAM in GB. e.g., 8"),
   maxRam: z.number().optional().describe("Maximum RAM in GB. e.g., 12"),
@@ -307,9 +408,7 @@ export const ClientContractSchema = z.object({
   deadlineDays: z.number().int().min(5).max(20).describe("Deadline in 'market days' (simulated game days) from the moment the contract is accepted, typically 5-20 days."),
   status: z.enum(['available', 'accepted', 'in_progress', 'submitted', 'completed_success', 'completed_failed_specs', 'completed_failed_deadline']).default('available').describe("Initial status, always 'available'.")
 });
-// ClientContract type is already defined above, but Zod schema is here.
 
-// For generate-phone-review-flow.ts
 export const GeneratePhoneReviewInputSchema = z.object({
   phoneName: z.string().describe('The name of the phone model.'),
   processor: z.string().describe('The processor model.'),
@@ -332,7 +431,6 @@ export const GeneratePhoneReviewOutputSchema = z.object({
 });
 export type GeneratePhoneReviewOutput = z.infer<typeof GeneratePhoneReviewOutputSchema>;
 
-// For trend-forecasting.ts
 export const TrendForecastingInputSchema = z.object({
   marketData: z.string().describe('The current market data for phones.'),
   competitorDevices: z.string().describe('Details of competitor devices.'),
@@ -351,8 +449,6 @@ export const TrendForecastingOutputSchema = z.object({
   ).describe('A ranked list of phone features and technologies based on popularity.'),
 });
 export type TrendForecastingOutput = z.infer<typeof TrendForecastingOutputSchema>;
-
-// --- End of Genkit Flow Schemas and Types ---
 
 
 export const PROCESSOR_OPTIONS: PhoneComponent = {
@@ -382,11 +478,10 @@ export const DISPLAY_OPTIONS: PhoneComponent = {
   ]
 };
 
-// For R&D Page Custom Display Creation
 export const DISPLAY_RESOLUTION_CATEGORIES_RD = [
-    { value: 'hd', label: 'displayResolution_hd' }, // 720p
-    { value: 'fhd', label: 'displayResolution_fhd' }, // 1080p
-    { value: 'qhd', label: 'displayResolution_qhd' }, // 1440p
+    { value: 'hd', label: 'displayResolution_hd' },
+    { value: 'fhd', label: 'displayResolution_fhd' },
+    { value: 'qhd', label: 'displayResolution_qhd' },
 ];
 
 export const DISPLAY_TECHNOLOGIES_RD = [
@@ -498,9 +593,9 @@ export const AVAILABLE_MARKETING_CAMPAIGNS: MarketingCampaignType[] = [
     nameKey: 'campaign_smm_boost_name',
     descriptionKey: 'campaign_smm_boost_desc',
     cost: 500,
-    durationDays: 3, // Short duration
+    durationDays: 3,
     effectScope: 'all',
-    saleChanceBonus: 0.02, // +2% sale chance for all phones
+    saleChanceBonus: 0.02,
     brandReputationBonus: 1,
   },
   {
@@ -508,9 +603,9 @@ export const AVAILABLE_MARKETING_CAMPAIGNS: MarketingCampaignType[] = [
     nameKey: 'campaign_tech_review_name',
     descriptionKey: 'campaign_tech_review_desc',
     cost: 2000,
-    durationDays: 7, // Medium duration
-    effectScope: 'single_model', // Requires selecting a phone model
-    saleChanceBonus: 0.08, // +8% sale chance for the specific model
+    durationDays: 7,
+    effectScope: 'single_model',
+    saleChanceBonus: 0.08,
     brandReputationBonus: 3,
   },
   {
@@ -518,9 +613,9 @@ export const AVAILABLE_MARKETING_CAMPAIGNS: MarketingCampaignType[] = [
     nameKey: 'campaign_global_blitz_name',
     descriptionKey: 'campaign_global_blitz_desc',
     cost: 10000,
-    durationDays: 15, // Long duration
+    durationDays: 15,
     effectScope: 'all',
-    saleChanceBonus: 0.05, // +5% sale chance for all, but longer duration and higher cost
+    saleChanceBonus: 0.05,
     brandReputationBonus: 5,
   },
 ];
@@ -534,41 +629,45 @@ export const LOCAL_STORAGE_ACCEPTED_CONTRACTS_KEY = 'gadgetTycoon_acceptedContra
 export const LOCAL_STORAGE_LAST_MARKET_SIMULATION_KEY = 'gadgetTycoon_lastMarketSimulation';
 export const LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY = 'gadgetTycoon_customProcessors';
 export const LOCAL_STORAGE_CUSTOM_DISPLAYS_KEY = 'gadgetTycoon_customDisplays';
+export const LOCAL_STORAGE_RESEARCHED_PROCESSOR_TIERS_KEY = 'gadgetTycoon_researchedProcTiers';
+export const LOCAL_STORAGE_RESEARCHED_DISPLAY_TIERS_KEY = 'gadgetTycoon_researchedDispTiers';
 export const LOCAL_STORAGE_GAME_SETTINGS_KEY = 'gadgetTycoon_gameSettings';
 export const LOCAL_STORAGE_ACHIEVEMENTS_KEY = 'gadgetTycoon_achievements';
 export const LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY = 'gadgetTycoon_activeCampaign';
 
 
 export const SALE_MARKUP_FACTOR = 1.5;
-export const INITIAL_FUNDS = 5000; // Adjusted initial funds
-export const BASE_DESIGN_ASSEMBLY_COST = 20; // Adjusted base assembly cost
+export const INITIAL_FUNDS = 15000; // Increased for campaign testing
+export const BASE_DESIGN_ASSEMBLY_COST = 25; // Slightly increased
 
 // Market Simulation Parameters
-export const BASE_MARKET_SALE_CHANCE_PER_UNIT = 0.02; // Base chance, will be modified by level and difficulty
-export const MARKET_SIMULATION_INTERVAL = 30000; // 30 seconds for more frequent feedback
-export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 3; // Max sales for one phone model in one tick
+export const BASE_MARKET_SALE_CHANCE_PER_UNIT = 0.02;
+export const MARKET_SIMULATION_INTERVAL = 20000; // Faster market simulation
+export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 5;
 export const MARKET_CATCH_UP_THRESHOLD_MINUTES = 5;
-export const MARKET_MAX_CATCH_UP_INTERVALS = 20; // Can catch up more if offline for longer
+export const MARKET_MAX_CATCH_UP_INTERVALS = 20;
 
-// Difficulty Modifiers for sale chance
 export const DIFFICULTY_SALE_CHANCE_MODIFIERS: Record<GameDifficulty, number> = {
-  easy: 1.25,    // 25% higher chance
-  normal: 1.0,   // Base chance
-  hard: 0.75,    // 25% lower chance
+  easy: 1.25,
+  normal: 1.0,
+  hard: 0.75,
 };
 
 export const MAX_AVAILABLE_CONTRACTS = 3;
 
 // Leveling System
 export const XP_FOR_DESIGNING_PHONE = 50;
-export const XP_PER_PHONE_SOLD = 5; // Increased XP per sale
-export const XP_FOR_RESEARCHING_COMPONENT = 75; // Increased XP for R&D
+export const XP_PER_PHONE_SOLD = 10;
+export const XP_FOR_RESEARCHING_COMPONENT = 75; // For custom components
+export const XP_FOR_RESEARCHING_TIER = 100; // For researching a technology tier
 export const XP_FOR_STARTING_MARKETING_CAMPAIGN = 20;
 
 
 export function calculateXpToNextLevel(level: number): number {
-  return 100 + (level -1) * 75; // Slightly adjusted curve
+  return 100 + (level -1) * 75;
 }
 
 export const MONEY_BONUS_PER_LEVEL_BASE = 250;
-export const MONEY_BONUS_FIXED_AMOUNT = 1000; // Increased fixed bonus
+export const MONEY_BONUS_FIXED_AMOUNT = 1500; // Increased
+
+```
