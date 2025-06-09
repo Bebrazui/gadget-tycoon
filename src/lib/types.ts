@@ -306,9 +306,8 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
     id: 'innovatorCPU',
     titleKey: 'achievement_innovatorCPU_title',
     descriptionKey: 'achievement_innovatorCPU_desc',
-    condition: () => { // Removed direct localStorage access from condition
-        const customProcessors = typeof window !== "undefined" ? JSON.parse(localStorage.getItem(LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY) || '[]') as CustomProcessor[] : [];
-        return customProcessors.length > 0;
+    condition: (stats, phones, other) => {
+        return other?.customProcessors && other.customProcessors.length > 0;
     },
     xpReward: 75,
   },
@@ -637,13 +636,13 @@ export const LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY = 'gadgetTycoon_activeCampaign';
 
 
 export const SALE_MARKUP_FACTOR = 1.5;
-export const INITIAL_FUNDS = 15000; // Increased for campaign testing
-export const BASE_DESIGN_ASSEMBLY_COST = 25; // Slightly increased
+export const INITIAL_FUNDS = 25000; // Increased for campaign testing
+export const BASE_DESIGN_ASSEMBLY_COST = 30; // Slightly increased
 
 // Market Simulation Parameters
 export const BASE_MARKET_SALE_CHANCE_PER_UNIT = 0.02;
-export const MARKET_SIMULATION_INTERVAL = 20000; // Faster market simulation
-export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 5;
+export const MARKET_SIMULATION_INTERVAL = 15000; // Faster market simulation
+export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 7;
 export const MARKET_CATCH_UP_THRESHOLD_MINUTES = 5;
 export const MARKET_MAX_CATCH_UP_INTERVALS = 20;
 
@@ -657,7 +656,7 @@ export const MAX_AVAILABLE_CONTRACTS = 3;
 
 // Leveling System
 export const XP_FOR_DESIGNING_PHONE = 50;
-export const XP_PER_PHONE_SOLD = 10;
+export const XP_PER_PHONE_SOLD = 15;
 export const XP_FOR_RESEARCHING_COMPONENT = 75; // For custom components
 export const XP_FOR_RESEARCHING_TIER = 100; // For researching a technology tier
 export const XP_FOR_STARTING_MARKETING_CAMPAIGN = 20;
@@ -669,5 +668,3 @@ export function calculateXpToNextLevel(level: number): number {
 
 export const MONEY_BONUS_PER_LEVEL_BASE = 250;
 export const MONEY_BONUS_FIXED_AMOUNT = 1500; // Increased
-
-```
