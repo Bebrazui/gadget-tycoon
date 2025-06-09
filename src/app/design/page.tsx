@@ -42,6 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/hooks/useTranslation';
 import { getPhoneDesignReview, type GenerateReviewFormState } from './actions';
 import { useSettings } from '@/context/SettingsContext';
+import { checkAllAchievements } from '@/lib/achievements';
 
 
 const phoneDesignSchema = z.object({
@@ -303,11 +304,9 @@ export default function DesignPhonePage() {
     } else if (componentType === 'material') {
         baseCost = MATERIAL_OPTIONS.options?.find(opt => opt.value === value)?.cost || 0;
     }
-    // For other simple components, baseCost might be 0 or a fixed value if not covered above
-
-    // Apply event modifiers
+    
     activeGameEvents.forEach(event => {
-        if (event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === componentType) {
+      if (event.remainingDays >=0 && event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === componentType) {
             baseCost *= event.definition.effectValue;
         }
     });
@@ -322,7 +321,7 @@ export default function DesignPhonePage() {
     
     let ramCost = watchedValues.ram * RAM_COST_PER_GB;
     activeGameEvents.forEach(event => {
-        if (event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'ram') {
+        if (event.remainingDays >=0 && event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'ram') {
             ramCost *= event.definition.effectValue;
         }
     });
@@ -330,7 +329,7 @@ export default function DesignPhonePage() {
 
     let storageCost = watchedValues.storage * STORAGE_COST_PER_GB;
      activeGameEvents.forEach(event => {
-        if (event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'storage') {
+        if (event.remainingDays >=0 && event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'storage') {
             storageCost *= event.definition.effectValue;
         }
     });
@@ -338,21 +337,20 @@ export default function DesignPhonePage() {
 
     let mainCameraCost = watchedValues.cameraResolution * CAMERA_COST_PER_MP;
     activeGameEvents.forEach(event => {
-        if (event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'camera') {
-            mainCameraCost *= event.definition.effectValue; // Assuming general camera cost event
+        if (event.remainingDays >=0 && event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'camera') { // Assuming general camera cost event
+            mainCameraCost *= event.definition.effectValue;
         }
     });
     unitCost += mainCameraCost;
     
     let batteryCost = (watchedValues.batteryCapacity / 100) * BATTERY_COST_PER_100MAH;
     activeGameEvents.forEach(event => {
-        if (event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'battery') {
+        if (event.remainingDays >=0 && event.definition.type === 'component_cost_modifier' && event.definition.componentCategory === 'battery') {
             batteryCost *= event.definition.effectValue;
         }
     });
     unitCost += batteryCost;
 
-    // Other costs - assuming no specific event modifiers for them yet, but could be added
     unitCost += (watchedValues.screenSize - 5.0) * SCREEN_SIZE_COST_FACTOR;
     unitCost += REFRESH_RATE_OPTIONS.options?.find(opt => opt.value === watchedValues.refreshRate)?.cost || 0;
     unitCost += WATER_RESISTANCE_OPTIONS.options?.find(opt => opt.value === watchedValues.waterResistance)?.cost || 0;
@@ -382,9 +380,8 @@ export default function DesignPhonePage() {
     setIsSubmitting(true);
     setReviewState(null);
 
-    // Recalculate costs one last time before submission to ensure event effects are current
     calculateCosts(); 
-    const currentUnitCost = unitManufacturingCost; // Use the state updated by calculateCosts
+    const currentUnitCost = unitManufacturingCost; 
     const currentTotalCost = currentUnitCost * data.productionQuantity;
 
 
@@ -548,9 +545,11 @@ export default function DesignPhonePage() {
          });
       }
       
-      existingPhones.push(phoneToSave);
-      localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(existingPhones));
+      const updatedPhones = [...existingPhones, phoneToSave];
+      localStorage.setItem(LOCAL_STORAGE_MY_PHONES_KEY, JSON.stringify(updatedPhones));
       window.dispatchEvent(new CustomEvent('myPhonesChanged'));
+      
+      checkAllAchievements(currentStats, updatedPhones, toast, t, language);
 
       reset(defaultValues);
 

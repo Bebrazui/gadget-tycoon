@@ -267,20 +267,21 @@ export interface ClientContract {
   acceptedDate?: string; // ISO string, set when accepted
 }
 
+// --- Achievements System ---
+export type AchievementId =
+  | 'firstSale'
+  | 'rookieSeller'
+  | 'firstMillionNetWorth'
+  | 'innovatorCPU'
+  | 'prolificDesigner';
+
 export interface Achievement {
   id: AchievementId;
   titleKey: string;
   descriptionKey: string;
-  condition: (stats: GameStats, phones: PhoneDesign[], other?: any) => boolean; // other can be used for specific data like researched components or contracts
+  condition: (stats: GameStats, phones: PhoneDesign[], other?: any) => boolean;
   xpReward: number;
 }
-
-export type AchievementId =
-  | 'rookieSeller'
-  | 'firstMillionNetWorth'
-  | 'innovatorCPU'
-  | 'prolificDesigner'
-  | 'firstSale';
 
 export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
   {
@@ -309,6 +310,9 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
     titleKey: 'achievement_innovatorCPU_title',
     descriptionKey: 'achievement_innovatorCPU_desc',
     condition: (stats, phones, other) => {
+        // This condition will need access to the customProcessors list.
+        // The `other` parameter can be used for this.
+        // The `checkAllAchievements` function will need to load this from localStorage.
         return other?.customProcessors && other.customProcessors.length > 0;
     },
     xpReward: 75,
@@ -321,6 +325,7 @@ export const ACHIEVEMENT_DEFINITIONS: Achievement[] = [
     xpReward: 50,
   },
 ];
+// --- End Achievements System ---
 
 
 export interface MarketingCampaignType {
@@ -694,13 +699,13 @@ export const LOCAL_STORAGE_ACTIVE_EVENTS_KEY = 'gadgetTycoon_activeEvents';
 
 
 export const SALE_MARKUP_FACTOR = 1.5;
-export const INITIAL_FUNDS = 25000;
-export const BASE_DESIGN_ASSEMBLY_COST = 30;
+export const INITIAL_FUNDS = 50000; // Increased
+export const BASE_DESIGN_ASSEMBLY_COST = 50; // Increased
 
 // Market Simulation Parameters
 export const BASE_MARKET_SALE_CHANCE_PER_UNIT = 0.02;
-export const MARKET_SIMULATION_INTERVAL = 15000;
-export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 7;
+export const MARKET_SIMULATION_INTERVAL = 10000; // Faster market simulation
+export const MARKET_MAX_SALES_PER_PHONE_PER_INTERVAL = 10; // Increased
 export const MARKET_CATCH_UP_THRESHOLD_MINUTES = 5;
 export const MARKET_MAX_CATCH_UP_INTERVALS = 20;
 
@@ -716,10 +721,10 @@ export const GAME_EVENT_PROBABILITY_PER_SIMULATION = 0.10; // 10% chance per mar
 
 // Leveling System
 export const XP_FOR_DESIGNING_PHONE = 50;
-export const XP_PER_PHONE_SOLD = 15;
-export const XP_FOR_RESEARCHING_COMPONENT = 75;
-export const XP_FOR_RESEARCHING_TIER = 100;
-export const XP_FOR_STARTING_MARKETING_CAMPAIGN = 20;
+export const XP_PER_PHONE_SOLD = 20; // Increased
+export const XP_FOR_RESEARCHING_COMPONENT = 100; // Increased
+export const XP_FOR_RESEARCHING_TIER = 150; // Increased from 100
+export const XP_FOR_STARTING_MARKETING_CAMPAIGN = 30; // Increased
 
 
 export function calculateXpToNextLevel(level: number): number {
@@ -727,4 +732,4 @@ export function calculateXpToNextLevel(level: number): number {
 }
 
 export const MONEY_BONUS_PER_LEVEL_BASE = 250;
-export const MONEY_BONUS_FIXED_AMOUNT = 1500;
+export const MONEY_BONUS_FIXED_AMOUNT = 2500; // Increased

@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SectionTitle } from '@/components/shared/SectionTitle';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useToast } from '@/hooks/use-toast';
-import type { CustomProcessor, CustomDisplay, GameStats, Transaction, GameSettings, ComponentTier, ProcessorTierCharacteristics, DisplayTierCharacteristics } from '@/lib/types';
+import type { CustomProcessor, CustomDisplay, GameStats, Transaction, GameSettings, ComponentTier, ProcessorTierCharacteristics, DisplayTierCharacteristics, PhoneDesign } from '@/lib/types';
 import {
     LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY,
     LOCAL_STORAGE_CUSTOM_DISPLAYS_KEY,
@@ -28,7 +28,8 @@ import {
     MONEY_BONUS_PER_LEVEL_BASE, MONEY_BONUS_FIXED_AMOUNT,
     PROCESSOR_TIERS, DISPLAY_TIERS,
     LOCAL_STORAGE_RESEARCHED_PROCESSOR_TIERS_KEY,
-    LOCAL_STORAGE_RESEARCHED_DISPLAY_TIERS_KEY
+    LOCAL_STORAGE_RESEARCHED_DISPLAY_TIERS_KEY,
+    LOCAL_STORAGE_MY_PHONES_KEY,
 } from '@/lib/types';
 import { FlaskConical, Loader2, PackagePlus, AlertCircle, Cpu, MonitorSmartphone, DollarSign, CheckCircle2, Zap, Layers } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -36,6 +37,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSettings } from '@/context/SettingsContext';
 import { Separator } from '@/components/ui/separator';
+import { checkAllAchievements } from '@/lib/achievements';
 
 
 // Zod Schemas
@@ -83,11 +85,7 @@ const calculateAlgorithmicProcessorCosts = (data: Partial<CustomProcessorFormDat
 
     mfgCost = Math.max(15, Math.min(600, parseFloat(mfgCost.toFixed(2))));
     
-    // For now, the "researchCost" for a *specific* component (after tier research) is 0,
-    // as per our discussion. Tier research is the main R&D cost.
-    // If we re-introduce per-component R&D cost, this logic would change.
-    // const researchCost = Math.max(mfgCost * 5, mfgCost * researchCostMultiplier, Math.min(200000, parseFloat((mfgCost * researchCostMultiplier).toFixed(2))));
-    const researchCost = 0; // No additional research cost for custom component after tier is researched
+    const researchCost = 0; 
 
     return { manufacturingCost: mfgCost, researchCost: researchCost };
 };
@@ -111,7 +109,7 @@ const calculateAlgorithmicDisplayCosts = (data: Partial<CustomDisplayFormData>, 
     }
 
     mfgCost = parseFloat(Math.max(10, Math.min(250, mfgCost)).toFixed(2));
-    const researchCost = 0; // No additional research cost for custom component after tier is researched
+    const researchCost = 0; 
 
     return { manufacturingCost: mfgCost, researchCost: researchCost };
 };
@@ -207,7 +205,6 @@ export default function RDPage() {
         const handleComponentsUpdate = () => loadComponentsAndTiers(); // Renamed for clarity
         window.addEventListener('customProcessorsChanged', handleComponentsUpdate);
         window.addEventListener('customDisplaysChanged', handleComponentsUpdate);
-        // Add listeners for tier changes if needed, though direct state update might be enough
         return () => {
             window.removeEventListener('customProcessorsChanged', handleComponentsUpdate);
             window.removeEventListener('customDisplaysChanged', handleComponentsUpdate);
@@ -263,6 +260,10 @@ export default function RDPage() {
             localStorage.setItem(LOCAL_STORAGE_RESEARCHED_DISPLAY_TIERS_KEY, JSON.stringify(updatedTiers));
         }
         
+        const phonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
+        const phones: PhoneDesign[] = phonesString ? JSON.parse(phonesString) : [];
+        checkAllAchievements(currentStats, phones, toast, t, language);
+
         toast({ title: t('tierResearchSuccessTitle'), description: t('tierResearchSuccessDesc', { tierName: t(tierToResearch.nameKey) }) });
         setIsResearchingTier(null);
     };
@@ -271,28 +272,27 @@ export default function RDPage() {
     const onProcessorResearchSubmit = (data: CustomProcessorFormData) => {
         const selectedTier = PROCESSOR_TIERS.find(tier => tier.id === data.tierId);
         if (!selectedTier) {
-            toast({ variant: "destructive", title: t('errorStatus'), description: "Selected tier not found." }); // Should not happen if UI is correct
+            toast({ variant: "destructive", title: t('errorStatus'), description: "Selected tier not found." });
             return;
         }
         const costs = calculateAlgorithmicProcessorCosts(data, selectedTier);
 
-        if (!costs) { // Should already be reflected in estimatedProcessorCosts, but good to double check
+        if (!costs) { 
             toast({ variant: "destructive", title: t('errorStatus'), description: t('errorEstimatingCostsProc') });
             return;
         }
         setIsResearchingProcessor(true);
-        const {manufacturingCost, researchCost} = costs; // researchCost here is for component, should be 0 based on new logic
+        const {manufacturingCost, researchCost} = costs; 
 
-        if (!gameStats) return; // Should be loaded
+        if (!gameStats) return; 
         let currentStats = {...gameStats};
 
-        if (currentStats.totalFunds < researchCost) { // researchCost for component should be 0.
+        if (currentStats.totalFunds < researchCost) { 
             toast({ variant: "destructive", title: t('insufficientFundsErrorTitle'), description: t('insufficientFundsForResearchDesc', { name: data.name, researchCost: researchCost.toFixed(2), availableFunds: currentStats.totalFunds.toFixed(2) }) });
             setIsResearchingProcessor(false); return;
         }
 
-        currentStats.totalFunds -= researchCost; // Should be 0
-        // XP for component creation can be different from tier research
+        currentStats.totalFunds -= researchCost; 
         currentStats.xp += XP_FOR_RESEARCHING_COMPONENT; 
         toast({ title: t('xpGainedNotification', { amount: XP_FOR_RESEARCHING_COMPONENT })});
 
@@ -317,13 +317,18 @@ export default function RDPage() {
         localStorage.setItem(LOCAL_STORAGE_CUSTOM_PROCESSORS_KEY, JSON.stringify(updatedProcessors));
         window.dispatchEvent(new CustomEvent('customProcessorsChanged'));
 
-        if (researchCost > 0) { // Only add transaction if there's a cost (should be 0 for component R&D if tier covers it)
+        if (researchCost > 0) { 
             const transactionsString = localStorage.getItem(LOCAL_STORAGE_TRANSACTIONS_KEY);
             let currentTransactions: Transaction[] = transactionsString ? JSON.parse(transactionsString) : [];
             currentTransactions.push({ id: `txn_res_proc_${Date.now()}`, date: new Date().toISOString(), description: `transactionResearchProcessor{{processorName:${data.name}}}`, amount: -researchCost, type: 'expense' });
             localStorage.setItem(LOCAL_STORAGE_TRANSACTIONS_KEY, JSON.stringify(currentTransactions));
             window.dispatchEvent(new CustomEvent('transactionsChanged'));
         }
+        
+        const phonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
+        const phones: PhoneDesign[] = phonesString ? JSON.parse(phonesString) : [];
+        checkAllAchievements(currentStats, phones, toast, t, language, { customProcessors: updatedProcessors });
+
 
         toast({ title: t('processorResearchedSuccessTitle'), description: t('processorResearchedSuccessDesc', { name: data.name }) });
         resetProcForm({ name: '', tierId: '', antutuScore: undefined, coreCount: undefined, clockSpeed: undefined });
@@ -344,7 +349,7 @@ export default function RDPage() {
             return;
         }
         setIsResearchingDisplay(true);
-        const { manufacturingCost, researchCost } = costs; // researchCost for component should be 0
+        const { manufacturingCost, researchCost } = costs; 
 
         if (!gameStats) return;
         let currentStats = {...gameStats};
@@ -353,7 +358,7 @@ export default function RDPage() {
             toast({ variant: "destructive", title: t('insufficientFundsErrorTitle'), description: t('insufficientFundsForResearchDesc', { name: data.name, researchCost: researchCost.toFixed(2), availableFunds: currentStats.totalFunds.toFixed(2) }) });
             setIsResearchingDisplay(false); return;
         }
-        currentStats.totalFunds -= researchCost; // Should be 0
+        currentStats.totalFunds -= researchCost; 
         currentStats.xp += XP_FOR_RESEARCHING_COMPONENT;
         toast({ title: t('xpGainedNotification', { amount: XP_FOR_RESEARCHING_COMPONENT })});
         let xpToNext = calculateXpToNextLevel(currentStats.level);
@@ -384,6 +389,11 @@ export default function RDPage() {
             window.dispatchEvent(new CustomEvent('transactionsChanged'));
         }
         
+        const phonesString = localStorage.getItem(LOCAL_STORAGE_MY_PHONES_KEY);
+        const phones: PhoneDesign[] = phonesString ? JSON.parse(phonesString) : [];
+        checkAllAchievements(currentStats, phones, toast, t, language);
+
+
         toast({ title: t('displayResearchedSuccessTitle'), description: t('displayResearchedSuccessDesc', { name: data.name }) });
         resetDisplayForm({ name: '', tierId: '', resolutionCategory: DISPLAY_RESOLUTION_CATEGORIES_RD[1]?.value || '', technology: DISPLAY_TECHNOLOGIES_RD[1]?.value || '', refreshRate: DISPLAY_REFRESH_RATES_RD[1]?.value || 90 });
         setEstimatedDisplayCosts(null);
@@ -419,7 +429,6 @@ export default function RDPage() {
                 <p>{t('costLabel')}: ${tier.researchCost.toLocaleString()}</p>
                 {tier.requiredPlayerLevel && <p>{t('requiredLevel', {level: tier.requiredPlayerLevel})}</p>}
                 <p>XP: +{tier.xpReward}</p>
-                 {/* TODO: Display tier characteristics in a nice way */}
             </CardContent>
             <CardFooter>
                 <Button 
@@ -512,7 +521,6 @@ export default function RDPage() {
                                     {estimatedProcessorCosts && watchedProcFormValues.tierId && (
                                         <div className="text-sm space-y-1 p-3 bg-muted rounded-md">
                                             <p>{t('estimatedMfgCost', {cost: estimatedProcessorCosts.manufacturingCost.toFixed(2)})}</p>
-                                            {/* <p>{t('estimatedResearchCost', {cost: estimatedProcessorCosts.researchCost.toFixed(2)})}</p> */}
                                         </div>
                                     )}
                                 </CardContent>
@@ -608,7 +616,6 @@ export default function RDPage() {
                                     {estimatedDisplayCosts && watchedDisplayFormValues.tierId && (
                                         <div className="text-sm space-y-1 p-3 bg-muted rounded-md">
                                             <p>{t('estimatedMfgCost', {cost: estimatedDisplayCosts.manufacturingCost.toFixed(2)})}</p>
-                                            {/* <p>{t('estimatedResearchCost', {cost: estimatedDisplayCosts.researchCost.toFixed(2)})}</p> */}
                                         </div>
                                     )}
                                 </CardContent>

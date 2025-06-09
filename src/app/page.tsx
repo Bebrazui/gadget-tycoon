@@ -124,7 +124,7 @@ export default function DashboardPage() {
       campaignDetails = AVAILABLE_MARKETING_CAMPAIGNS.find(c => c.id === currentActiveCampaign.campaignId);
       if (campaignDetails) {
         // Ensure remainingDays is not negative before further processing this cycle
-        if (currentActiveCampaign.remainingDays >= 0) {
+        if (currentActiveCampaign.remainingDays >= 0) { // Check if campaign is still active
             currentActiveCampaign.remainingDays -= catchUpIntervals;
         }
       }
@@ -139,7 +139,7 @@ export default function DashboardPage() {
           let salesForThisPhoneInInterval = 0;
           let phoneSpecificCampaignBonus = 0;
 
-          if (campaignDetails && currentActiveCampaign && currentActiveCampaign.remainingDays >= 0) {
+          if (campaignDetails && currentActiveCampaign && currentActiveCampaign.remainingDays >= 0) { // Check if campaign is still active
             if (campaignDetails.effectScope === 'all') {
               phoneSpecificCampaignBonus = campaignDetails.saleChanceBonus;
             } else if (campaignDetails.effectScope === 'single_model' && phone.id === currentActiveCampaign.targetPhoneModelId) {
@@ -149,14 +149,16 @@ export default function DashboardPage() {
 
           let eventSaleChanceModifier = 0;
           currentActiveEvents.forEach(event => {
-            if (event.definition.type === 'global_sale_chance_modifier') {
-                eventSaleChanceModifier += event.definition.effectValue;
-            } else if (event.definition.type === 'feature_sale_chance_modifier' && event.definition.targetFeature) {
-                const featureValue = phone[event.definition.targetFeature as keyof PhoneDesign];
-                if (typeof event.definition.targetFeatureValue === 'boolean' && featureValue === event.definition.targetFeatureValue) {
+            if (event.remainingDays >= 0) { // Only apply active events
+                if (event.definition.type === 'global_sale_chance_modifier') {
                     eventSaleChanceModifier += event.definition.effectValue;
-                } else if (typeof event.definition.targetFeatureValue === 'number' && typeof featureValue === 'number' && featureValue >= event.definition.targetFeatureValue) {
-                     eventSaleChanceModifier += event.definition.effectValue; // e.g. screenSize >= 6.5
+                } else if (event.definition.type === 'feature_sale_chance_modifier' && event.definition.targetFeature) {
+                    const featureValue = phone[event.definition.targetFeature as keyof PhoneDesign];
+                    if (typeof event.definition.targetFeatureValue === 'boolean' && featureValue === event.definition.targetFeatureValue) {
+                        eventSaleChanceModifier += event.definition.effectValue;
+                    } else if (typeof event.definition.targetFeatureValue === 'number' && typeof featureValue === 'number' && featureValue >= event.definition.targetFeatureValue) {
+                        eventSaleChanceModifier += event.definition.effectValue; // e.g. screenSize >= 6.5
+                    }
                 }
             }
           });
@@ -231,7 +233,7 @@ export default function DashboardPage() {
       window.dispatchEvent(new CustomEvent('activeCampaignChanged'));
     } else if (currentActiveCampaign) {
       localStorage.setItem(LOCAL_STORAGE_ACTIVE_CAMPAIGN_KEY, JSON.stringify(currentActiveCampaign));
-      setActiveCampaign(currentActiveCampaign); // Update state if remainingDays changed
+      setActiveCampaign({...currentActiveCampaign}); // Update state if remainingDays changed
        stateModifiedInLoop = true;
     }
 
@@ -245,8 +247,9 @@ export default function DashboardPage() {
       window.dispatchEvent(new CustomEvent('myPhonesChanged'));
       window.dispatchEvent(new CustomEvent('gameStatsChanged'));
       window.dispatchEvent(new CustomEvent('transactionsChanged'));
-      checkAllAchievements(currentStats, currentPhones, toast, t, language);
     }
+    
+    checkAllAchievements(currentStats, currentPhones, toast, t, language);
 
     salesNotificationsForCycle.forEach(notification => { toast({ title: notification.title, description: notification.description, }); });
     if (!isCatchUp && totalPhonesSoldThisCycle === 0 && !currentActiveCampaign && currentActiveEvents.length === 0) { // Less noisy when events/campaigns are running
@@ -287,7 +290,7 @@ export default function DashboardPage() {
             const parsedSettings = JSON.parse(storedSettingsString) as Partial<GameSettings>;
             currentSettings = { ...defaultGameSettings, ...parsedSettings };
              if (typeof currentSettings.useOnlineFeatures !== 'boolean' || !['easy', 'normal', 'hard'].includes(currentSettings.difficulty)) {
-                currentSettings = { ...defaultGameSettings, ...currentSettings };
+                currentSettings = { ...defaultGameSettings, ...currentSettings }; // Re-merge with defaults to ensure all fields
                 localStorage.setItem(LOCAL_STORAGE_GAME_SETTINGS_KEY, JSON.stringify(currentSettings));
             }
         } catch (error) {
@@ -349,7 +352,7 @@ export default function DashboardPage() {
   }
   
   const getActiveCampaignInfo = () => {
-    if (!activeCampaign) return null;
+    if (!activeCampaign || activeCampaign.remainingDays < 0) return null;
     const campaignDetails = AVAILABLE_MARKETING_CAMPAIGNS.find(c => c.id === activeCampaign.campaignId);
     if (!campaignDetails) return null;
     let targetInfo = t('activeCampaignTarget_all');
@@ -363,7 +366,7 @@ export default function DashboardPage() {
   const getActiveEventsInfo = () => {
     if (activeGameEvents.length === 0) return t('noActiveGameEvents');
     return t('activeGameEventsInfo', { 
-        events: activeGameEvents.map(event => `${t(event.definition.titleKey)} (${t('gameEventDurationLabel', {days: event.remainingDays})})`).join(', ')
+        events: activeGameEvents.map(event => `${t(event.definition.titleKey)} (${t('gameEventDurationLabel', {days: Math.max(0,event.remainingDays)})})`).join(', ')
     });
   };
 
@@ -420,18 +423,18 @@ export default function DashboardPage() {
         </AlertDescription>
       </Alert>
       
-      {activeGameEvents.length > 0 && (
+      {activeGameEvents.filter(event => event.remainingDays >=0).length > 0 && (
         <Card>
             <CardHeader>
                 <CardTitle className="text-lg flex items-center"><Bell className="mr-2 h-5 w-5 text-primary"/>{t('activeGameEvents')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-                {activeGameEvents.map(event => (
+                {activeGameEvents.filter(event => event.remainingDays >=0).map(event => (
                     <Alert key={event.eventId} variant={event.definition.isNegative ? "destructive" : "default"} className="flex items-start">
                         {getEventIcon(event)}
-                        <div className="ml-3"> {/* Adjusted for icon spacing if needed */}
+                        <div className="ml-3">
                             <AlertDescription>
-                                <strong>{t(event.definition.titleKey)}:</strong> {t(event.definition.descriptionKey)} ({t('gameEventDurationLabel', {days: event.remainingDays})})
+                                <strong>{t(event.definition.titleKey)}:</strong> {t(event.definition.descriptionKey)} ({t('gameEventDurationLabel', {days: Math.max(0, event.remainingDays)})})
                             </AlertDescription>
                         </div>
                     </Alert>
